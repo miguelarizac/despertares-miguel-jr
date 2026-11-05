@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Despertares">
+<title>Despertares</title>
+<style>
+  :root { --bg:#0b0d12; --card:#151924; --line:#232838; --text:#c9cede; --dim:#7a8199; --accent:#b5793f; --accent2:#8a5a2b; --danger:#a5544f; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:480px; margin:0 auto; padding:max(16px,env(safe-area-inset-top)) 16px 40px; }
+  header { display:flex; justify-content:space-between; align-items:baseline; margin:4px 0 18px; }
+  h1 { font-size:18px; font-weight:600; margin:0; letter-spacing:.2px; }
+  #clock { color:var(--dim); font-variant-numeric:tabular-nums; }
+  #wake { display:block; width:100%; aspect-ratio:1.6; border:0; border-radius:28px; background:radial-gradient(circle at 50% 35%, var(--accent), var(--accent2)); color:#1a0f05; font-size:30px; font-weight:700; letter-spacing:.5px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  #wake:active { transform:scale(.98); filter:brightness(.9); }
+  #wake small { display:block; font-size:14px; font-weight:500; opacity:.75; margin-top:6px; }
+  #toast { min-height:24px; text-align:center; color:var(--accent); margin:10px 0 4px; font-size:15px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:14px 16px; margin-top:14px; }
+  h2 { font-size:14px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.8px; margin:0 0 10px; display:flex; justify-content:space-between; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line); }
+  li:first-child { border-top:0; }
+  .t { font-size:20px; font-variant-numeric:tabular-nums; min-width:62px; }
+  .note { flex:1; color:var(--dim); font-size:14px; }
+  button.mini { background:none; border:1px solid var(--line); color:var(--dim); border-radius:10px; padding:6px 10px; font-size:13px; }
+  button.mini.del { color:var(--danger); }
+  .empty { color:var(--dim); font-size:14px; }
+  .summary { font-size:17px; margin-bottom:8px; }
+  .copy { width:100%; margin-top:10px; padding:12px; border-radius:12px; border:1px solid var(--accent2); background:none; color:var(--accent); font-size:15px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td { padding:7px 0; border-top:1px solid var(--line); vertical-align:top; }
+  tr:first-child td { border-top:0; }
+  td.n { text-align:right; color:var(--accent); font-weight:600; width:32px; }
+  td.d { color:var(--dim); width:96px; }
+  #keybox { display:none; }
+  #keybox input { width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:16px; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>Despertares · Miguel Jr.</h1><span id="clock"></span></header>
+
+  <section id="keybox">
+    <h2>Clave de acceso</h2>
+    <input id="keyin" type="password" placeholder="Escribe la clave" autocomplete="off">
+    <button class="copy" id="keysave">Guardar</button>
+  </section>
+
+  <button id="wake">Se ha despertado<small>pulsa para anotar la hora</small></button>
+  <div id="toast"></div>
+
+  <section>
+    <h2><span>Esta noche</span><span id="tn-count"></span></h2>
+    <ul id="tonight"></ul>
+  </section>
+
+  <section>
+    <h2><span>Anoche</span><span id="ln-date"></span></h2>
+    <div id="lastnight"></div>
+  </section>
+
+  <section>
+    <h2><span>Últimas noches</span></h2>
+    <table id="history"></table>
+  </section>
+</main>
+<script>
+const qs = new URLSearchParams(location.search);
+let KEY = '';
+try { KEY = qs.get('k') || localStorage.getItem('k') || ''; if (qs.get('k')) { localStorage.setItem('k', KEY); history.replaceState(null, '', location.pathname); } } catch (e) { KEY = qs.get('k') || ''; }
+
+const $ = s => document.querySelector(s);
+const fmtDate = k => { const [y,m,d] = k.split('-').map(Number); const dt = new Date(Date.UTC(y,m-1,d,12)); return dt.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'numeric',timeZone:'UTC'}); };
+const addDays = (k,n) => { const [y,m,d]=k.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
+
+async function api(method, p, body) {
+  const r = await fetch(p, { method, headers: { 'Content-Type':'application/json', 'X-App-Key': KEY }, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 401) { $('#keybox').style.display = 'block'; throw new Error('clave'); }
+  if (!r.ok) throw new Error('error ' + r.status);
+  return r.json();
+}
+
+function toast(msg) { $('#toast').textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => $('#toast').textContent = '', 6000); }
+
+function row(w, editable) {
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="t">${w.time}</span><span class="note"></span>`;
+  li.querySelector('.note').textContent = w.note;
+  if (editable) {
+    const n = document.createElement('button'); n.className = 'mini'; n.textContent = 'Nota';
+    n.onclick = async () => { const v = prompt('Nota (opcional): cómo fue, cuánto duró…', w.note || ''); if (v === null) return; await api('PATCH', '/api/wakes/' + w.id, { note: v }); load(); };
+    const d = document.createElement('button'); d.className = 'mini del'; d.textContent = 'Borrar';
+    d.onclick = async () => { if (!confirm('¿Borrar el registro de las ' + w.time + '?')) return; await api('DELETE', '/api/wakes/' + w.id); load(); };
+    li.append(n, d);
+  }
+  return li;
+}
+
+async function load() {
+  const data = await api('GET', '/api/wakes?days=8');
+  $('#keybox').style.display = 'none';
+  const tn = data.nights[data.tonight] || [];
+  const ul = $('#tonight'); ul.innerHTML = '';
+  if (!tn.length) ul.innerHTML = '<li class="empty">Sin despertares anotados.</li>';
+  tn.forEach(w => ul.append(row(w, true)));
+  $('#tn-count').textContent = tn.length ? tn.length : '';
+
+  const lk = addDays(data.tonight, -1); const ln = data.nights[lk] || [];
+  $('#ln-date').textContent = 'noche del ' + fmtDate(lk);
+  const box = $('#lastnight'); box.innerHTML = '';
+  const s = document.createElement('div'); s.className = 'summary';
+  s.textContent = ln.length ? `${ln.length} despertar${ln.length>1?'es':''}: ${ln.map(w=>w.time).join(', ')}` : 'Ningún despertar anotado.';
+  box.append(s);
+  if (ln.length) {
+    const u = document.createElement('ul'); ln.forEach(w => u.append(row(w, true))); box.append(u);
+    const c = document.createElement('button'); c.className = 'copy'; c.textContent = 'Copiar para el diario';
+    c.onclick = async () => { const txt = ln.map(w => w.time + (w.note ? ' (' + w.note + ')' : '')).join(', '); try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + txt); } catch { prompt('Copia esto:', txt); } };
+    box.append(c);
+  }
+
+  const tb = $('#history'); tb.innerHTML = '';
+  for (let i = 1; i <= 7; i++) {
+    const k = addDays(data.tonight, -i); const ws = data.nights[k] || [];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="d">${fmtDate(k)}</td><td></td><td class="n">${ws.length}</td>`;
+    tr.children[1].textContent = ws.map(w => w.time).join(' · ') || '—';
+    tb.append(tr);
+  }
+}
+
+$('#wake').onclick = async () => {
+  if (navigator.vibrate) navigator.vibrate(30);
+  try { const r = await api('POST', '/api/wakes'); toast('Anotado a las ' + r.time); load(); }
+  catch (e) { toast(e.message === 'clave' ? 'Falta la clave' : 'No se pudo guardar, reintenta'); }
+};
+$('#keysave').onclick = () => { KEY = $('#keyin').value.trim(); try { localStorage.setItem('k', KEY); } catch {} load().catch(()=>{}); };
+
+function tick() { $('#clock').textContent = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'}); }
+tick(); setInterval(tick, 15000);
+load().catch(() => {});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load().catch(()=>{}); });
+</script>
+</body>
+</html>
