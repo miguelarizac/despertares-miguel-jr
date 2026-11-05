@@ -1,0 +1,24 @@
+databases:
+  - name: despertares-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "17"
+    databaseName: despertares_db
+    user: despertares_db_user
+
+services:
+  - type: web
+    name: despertares-miguel-jr
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: despertares-db
+          property: connectionString
+      - key: APP_KEY
+        sync: false
