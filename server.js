@@ -58,7 +58,9 @@ function send(res, code, body, type = 'application/json') {
 }
 function authed(req, url) {
   if (!APP_KEY) return true;
-  return req.headers['x-app-key'] === APP_KEY || url.searchParams.get('k') === APP_KEY;
+  const want = APP_KEY.trim().toLowerCase();
+  const got = (req.headers['x-app-key'] || url.searchParams.get('k') || '').toString().trim().toLowerCase();
+  return got === want;
 }
 function readBody(req) {
   return new Promise(r => { let b = ''; req.on('data', c => b += c); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });

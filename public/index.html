@@ -47,7 +47,8 @@
 
   <section id="keybox">
     <h2>Clave de acceso</h2>
-    <input id="keyin" type="password" placeholder="Escribe la clave" autocomplete="off">
+    <input id="keyin" type="text" placeholder="Escribe la clave" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <div id="keyerr" class="empty" style="margin-top:8px"></div>
     <button class="copy" id="keysave">Guardar</button>
   </section>
 
@@ -72,7 +73,8 @@
 <script>
 const qs = new URLSearchParams(location.search);
 let KEY = '';
-try { KEY = qs.get('k') || localStorage.getItem('k') || ''; if (qs.get('k')) { localStorage.setItem('k', KEY); history.replaceState(null, '', location.pathname); } } catch (e) { KEY = qs.get('k') || ''; }
+try { KEY = qs.get('k') || localStorage.getItem('k') || ''; if (qs.get('k')) localStorage.setItem('k', KEY); } catch (e) { KEY = qs.get('k') || ''; }
+KEY = KEY.trim();
 
 const $ = s => document.querySelector(s);
 const fmtDate = k => { const [y,m,d] = k.split('-').map(Number); const dt = new Date(Date.UTC(y,m-1,d,12)); return dt.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'numeric',timeZone:'UTC'}); };
@@ -80,7 +82,7 @@ const addDays = (k,n) => { const [y,m,d]=k.split('-').map(Number); return new Da
 
 async function api(method, p, body) {
   const r = await fetch(p, { method, headers: { 'Content-Type':'application/json', 'X-App-Key': KEY }, body: body ? JSON.stringify(body) : undefined });
-  if (r.status === 401) { $('#keybox').style.display = 'block'; throw new Error('clave'); }
+  if (r.status === 401) { $('#keybox').style.display = 'block'; if (KEY) $('#keyerr').textContent = 'Clave incorrecta (' + KEY.length + ' caracteres).'; throw new Error('clave'); }
   if (!r.ok) throw new Error('error ' + r.status);
   return r.json();
 }
@@ -138,7 +140,7 @@ $('#wake').onclick = async () => {
   try { const r = await api('POST', '/api/wakes'); toast('Anotado a las ' + r.time); load(); }
   catch (e) { toast(e.message === 'clave' ? 'Falta la clave' : 'No se pudo guardar, reintenta'); }
 };
-$('#keysave').onclick = () => { KEY = $('#keyin').value.trim(); try { localStorage.setItem('k', KEY); } catch {} load().catch(()=>{}); };
+$('#keysave').onclick = () => { KEY = $('#keyin').value.trim(); try { localStorage.setItem('k', KEY); } catch {} history.replaceState(null, '', location.pathname + '?k=' + encodeURIComponent(KEY)); load().catch(()=>{}); };
 
 function tick() { $('#clock').textContent = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'}); }
 tick(); setInterval(tick, 15000);
