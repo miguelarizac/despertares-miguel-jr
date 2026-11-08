@@ -21,6 +21,9 @@
   #wake.s-asleep { background:radial-gradient(circle at 50% 35%, var(--sleep), var(--sleep2)); color:#e6e9ff; }
   #wake.s-up { background:radial-gradient(circle at 50% 35%, var(--up), var(--up2)); color:#0d1a08; }
   #wake.s-done { background:var(--card); color:var(--dim); box-shadow:none; border:1px solid var(--line); }
+  #wake.s-awake { background:radial-gradient(circle at 50% 35%, #7d6bb0, #4b3f78); color:#efeaff; }
+  .arrow { color:var(--dim); } .m { color:var(--accent); font-size:14px; font-weight:600; }
+  details { margin-top:10px; } summary { color:var(--dim); font-size:14px; padding:6px 0; }
   #alt { display:block; margin:10px auto 0; background:none; border:0; color:var(--dim); font-size:14px; text-decoration:underline; padding:6px; }
   select.k.asleep { color:#8f9be0; border-color:#323d78; } select.k.up { color:#9cc488; border-color:#47693a; }
   select.mini { background:none; border:1px solid var(--line); color:var(--dim); border-radius:10px; padding:5px 4px; font-size:13px; }
@@ -67,7 +70,8 @@
   <section>
     <h2><span id="nt">Esta noche</span><span id="tn-count"></span></h2>
     <div class="tags" id="tags"></div>
-    <ul id="tonight"></ul>
+    <ul id="pairs"></ul>
+    <details><summary>Editar registros</summary><ul id="tonight"></ul></details>
     <button class="copy" id="copy" hidden>Copiar para el diario</button>
   </section>
 
@@ -83,7 +87,7 @@ try { KEY = qs.get('k') || localStorage.getItem('k') || ''; if (qs.get('k')) loc
 KEY = KEY.trim();
 
 const UP_FROM = 6 * 60 + 30;   // a partir de las 6:30 el botón pasa a "Se ha levantado"
-const LABEL = { asleep: 'Se ha dormido', wake: 'Despertar', up: 'Se ha levantado' };
+const LABEL = { asleep: 'Se ha dormido', wake: 'Despertar', resleep: 'Vuelve a dormirse', up: 'Se ha levantado' };
 const $ = s => document.querySelector(s);
 const fmtDate = k => { const [y,m,d] = k.split('-').map(Number); return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'numeric',timeZone:'UTC'}); };
 const addDays = (k,n) => { const [y,m,d]=k.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
@@ -100,33 +104,51 @@ async function api(method, p, body) {
 }
 function toast(msg) { $('#toast').textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => $('#toast').textContent = '', 6000); }
 
+const mins = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
 function summarize(ws) {
   const asleep = ws.find(w => w.kind === 'asleep');
   const up = [...ws].reverse().find(w => w.kind === 'up');
-  const wakes = ws.filter(w => w.kind === 'wake');
-  return { asleep, up, wakes };
+  const wakes = []; let open = null;
+  for (const w of ws) {
+    if (w.kind === 'wake') { open = { from: w, to: null }; wakes.push(open); }
+    else if (w.kind === 'resleep' && open && !open.to) { open.to = w; open.min = mins(open.from.iso, w.iso); open = null; }
+  }
+  const last = [...ws].reverse().find(w => w.kind !== 'up');
+  const awake = !up && last && last.kind === 'wake' ? last : null;   // despierto ahora mismo
+  const closed = wakes.filter(x => x.to);
+  const totalAwake = closed.reduce((a, x) => a + x.min, 0);
+  const avg = closed.length ? Math.round(totalAwake / closed.length) : null;
+  return { asleep, up, wakes, awake, totalAwake, avg };
 }
+const fm = m => m >= 60 ? Math.floor(m/60) + ' h ' + String(m%60).padStart(2,'0') + ' min' : m + ' min';
+const pairTxt = x => x.from.time + (x.to ? '–' + x.to.time + ' (' + fm(x.min) + ')' : ' (no volvió a dormirse)');
 
 // Qué hace el botón ahora mismo
 function state() {
-  const { asleep, up } = summarize(current);
+  const { asleep, up, awake } = summarize(current);
   if (up) return 'done';
   if (!asleep) return 'asleep';
-  return madridMin() >= UP_FROM && madridMin() < 18 * 60 ? 'up' : 'wake';
+  const morning = madridMin() >= UP_FROM && madridMin() < 18 * 60;
+  if (awake) return morning ? 'up-awake' : 'resleep';
+  return morning ? 'up' : 'wake';
 }
 
 function renderButton() {
   const st = state(); const b = $('#wake'); const alt = $('#alt');
+  const { awake } = summarize(current);
+  const since = awake ? 'despierto desde las ' + awake.time + ' · ' + fm(Math.max(0, mins(awake.iso, new Date()))) : '';
   b.className = 's-' + st; b.disabled = st === 'done';
   const cfg = {
-    asleep: ['Se ha dormido', 'inicio de la noche', 'wake', '¿Ya estaba dormido? Anotar un despertar'],
-    wake:   ['Se ha despertado', 'pulsa para anotar la hora', 'up', 'Se ha levantado ya (terminar la noche)'],
-    up:     ['Se ha levantado', 'fin de la noche', 'wake', 'Solo un despertar (sigue durmiendo)'],
-    done:   ['Noche terminada', 'el botón se reinicia a las 18:00', 'wake', 'Anotar otro despertar'],
+    asleep:     ['Se ha dormido', 'inicio de la noche', 'asleep', 'wake', '¿Ya estaba dormido? Anotar un despertar'],
+    wake:       ['Se ha despertado', 'pulsa al despertarse', 'wake', 'up', 'Se ha levantado ya (terminar la noche)'],
+    resleep:    ['Se ha vuelto a dormir', since, 'resleep', 'up', 'No se duerme: se ha levantado (terminar la noche)'],
+    up:         ['Se ha levantado', 'fin de la noche', 'up', 'wake', 'Solo un despertar (va a seguir durmiendo)'],
+    'up-awake': ['Se ha levantado', since + ' · fin de la noche', 'up', 'resleep', 'Se ha vuelto a dormir'],
+    done:       ['Noche terminada', 'el botón se reinicia a las 18:00', '', 'wake', 'Anotar otro despertar'],
   }[st];
   $('#wl').textContent = cfg[0]; $('#ws').textContent = cfg[1];
-  b.dataset.kind = st === 'done' ? '' : st;
-  alt.textContent = cfg[3]; alt.dataset.kind = cfg[2]; alt.hidden = false;
+  b.dataset.kind = cfg[2]; alt.textContent = cfg[4]; alt.dataset.kind = cfg[3]; alt.hidden = false;
+  if (st === 'resleep' || st === 'up-awake') b.classList.add('s-awake');
 }
 
 function row(w) {
@@ -134,7 +156,7 @@ function row(w) {
   li.innerHTML = `<span class="t">${w.time}</span><span class="note"></span>`;
   li.querySelector('.note').textContent = w.note;
   const sel = document.createElement('select'); sel.className = 'mini k ' + w.kind;
-  for (const k of ['asleep','wake','up']) { const o = new Option(LABEL[k], k, false, k === w.kind); sel.add(o); }
+  for (const k of ['asleep','wake','resleep','up']) { const o = new Option(LABEL[k], k, false, k === w.kind); sel.add(o); }
   sel.onchange = async () => { await api('PATCH', '/api/wakes/' + w.id, { kind: sel.value }); load(); };
   const n = document.createElement('button'); n.className = 'mini'; n.textContent = 'Nota';
   n.onclick = async () => { const v = prompt('Nota (opcional): cómo fue, cuánto duró…', w.note || ''); if (v === null) return; await api('PATCH', '/api/wakes/' + w.id, { note: v }); load(); };
@@ -145,10 +167,11 @@ function row(w) {
 }
 
 function diaryText(ws) {
-  const { asleep, up, wakes } = summarize(ws);
+  const { asleep, up, wakes, totalAwake, avg } = summarize(ws);
   const parts = [];
   if (asleep) parts.push('Se duerme ' + asleep.time + (asleep.note ? ' (' + asleep.note + ')' : ''));
-  parts.push(wakes.length ? 'Despertares: ' + wakes.map(w => w.time + (w.note ? ' (' + w.note + ')' : '')).join(', ') : 'Sin despertares');
+  parts.push(wakes.length ? wakes.length + ' despertar' + (wakes.length > 1 ? 'es' : '') + ': ' + wakes.map(x => pairTxt(x) + (x.from.note ? ' [' + x.from.note + ']' : '')).join(', ') : 'Sin despertares');
+  if (avg !== null) parts.push('Despierto ' + fm(totalAwake) + ' en total, media ' + fm(avg) + ' en volver a dormirse');
   if (up) parts.push('Se levanta ' + up.time + (up.note ? ' (' + up.note + ')' : ''));
   if (asleep && up) parts.push('Total ' + dur(asleep.iso, up.iso));
   return parts.join(' · ');
@@ -159,10 +182,18 @@ async function load() {
   $('#keybox').style.display = 'none';
   const k = data.tonight; current = data.nights[k] || [];
   $('#nt').textContent = 'Noche ' + fmtDate(k) + ' → ' + fmtDate(addDays(k, 1));
-  const { asleep, up, wakes } = summarize(current);
+  const { asleep, up, wakes, totalAwake, avg } = summarize(current);
   $('#tn-count').textContent = wakes.length ? wakes.length + ' desp.' : '';
   const tags = $('#tags'); tags.innerHTML = '';
-  if (asleep && up) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'Total ' + dur(asleep.iso, up.iso); tags.append(t); }
+  const tag = t => { const e = document.createElement('span'); e.className = 'tag'; e.textContent = t; tags.append(e); };
+  if (asleep) tag('Duerme ' + asleep.time);
+  if (avg !== null) tag('Tarda de media ' + fm(avg));
+  if (totalAwake) tag('Despierto ' + fm(totalAwake));
+  if (up) tag('Se levanta ' + up.time);
+  if (asleep && up) tag('Noche ' + dur(asleep.iso, up.iso));
+  const pl = $('#pairs'); pl.innerHTML = '';
+  wakes.forEach((x, i) => { const li = document.createElement('li'); li.innerHTML = `<span class="t">${x.from.time}</span><span class="arrow">→</span><span class="t">${x.to ? x.to.time : '…'}</span><span class="note"></span><span class="m"></span>`; li.querySelector('.m').textContent = x.to ? fm(x.min) : (summarize(current).awake === x.from ? 'despierto' : 'no volvió a dormirse'); li.querySelector('.note').textContent = x.from.note; pl.append(li); });
+  if (!wakes.length) pl.innerHTML = '<li class="empty">Sin despertares.</li>';
   const ul = $('#tonight'); ul.innerHTML = '';
   if (!current.length) ul.innerHTML = '<li class="empty">Nada anotado todavía.</li>';
   current.forEach(w => ul.append(row(w)));
@@ -170,13 +201,13 @@ async function load() {
   renderButton();
 
   const tb = $('#history'); tb.innerHTML = '';
-  tb.innerHTML = '<tr><td class="d"></td><td class="empty">duerme · despertares · se levanta</td><td class="n"></td></tr>';
+  tb.innerHTML = '<tr><td class="d"></td><td class="empty">duerme · tarda en volver · se levanta</td><td class="n"></td></tr>';
   for (let i = 1; i <= 7; i++) {
     const nk = addDays(k, -i); const ws = data.nights[nk] || [];
     const s = summarize(ws);
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="d">${fmtDate(nk)}</td><td></td><td class="n">${s.wakes.length}</td>`;
-    tr.children[1].textContent = ws.length ? [(s.asleep ? s.asleep.time : '?'), (s.wakes.map(w => w.time).join(' · ') || '—'), (s.up ? s.up.time : '?')].join('  |  ') : '—';
+    tr.children[1].textContent = ws.length ? [(s.asleep ? s.asleep.time : '?'), (s.avg !== null ? 'media ' + fm(s.avg) : (s.wakes.length ? '—' : 'sin desp.')), (s.up ? s.up.time : '?')].join('  |  ') : '—';
     tr.onclick = async () => { const txt = diaryText(ws); if (!ws.length) return; try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + txt); } catch { prompt('Copia esto:', txt); } };
     tb.append(tr);
   }

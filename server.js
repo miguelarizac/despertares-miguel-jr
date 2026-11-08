@@ -26,7 +26,7 @@ async function init() {
   )`);
   await pool.query(`ALTER TABLE wakes ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'wake'`);
 }
-const KINDS = ['asleep', 'wake', 'up'];
+const KINDS = ['asleep', 'wake', 'resleep', 'up'];
 
 function madridParts(d) {
   const f = new Intl.DateTimeFormat('es-ES', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
