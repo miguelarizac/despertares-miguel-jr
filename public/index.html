@@ -140,6 +140,7 @@
       <h2 class="daynav"><button id="d-prev">‹</button><b id="d-title"></b><button id="d-next">›</button></h2>
       <div class="hint" style="margin-top:-4px">Mismo orden que la hoja de Mimela. Horas redondeadas a 5 min como en la hoja (entre paréntesis la exacta). Todo se puede editar; ⧉ copia el valor.</div>
       <h3>Despertar</h3><div id="s-morning"></div>
+      <h3>Siestas</h3><div class="hint" style="margin:-2px 0 4px">Las horas de la pizarra de Erika (en Quién acuesta, Erika = «Otros»).</div><div id="s-naps"></div>
       <h3>Acostar</h3><div id="s-bed"></div>
       <h3>Despertares nocturnos</h3><div id="s-night"></div>
       <h3>Dream feeds</h3><div id="s-df"></div>
@@ -378,7 +379,7 @@ function kvInput(label, day, field, type, options) {
   d.innerHTML = `<span class="k">${esc(label)}</span>`;
   let el;
   if (options) { el = document.createElement('select'); el.add(new Option('—', '')); options.forEach(o => el.add(new Option(o, o))); }
-  else { el = document.createElement('input'); el.type = type || 'text'; }
+  else { el = document.createElement('input'); el.type = type || 'text'; if (type === 'time') el.step = 300; }
   el.value = (DAYS[day] || {})[field] || '';
   el.onchange = () => saveDay(day, { [field]: el.value });
   d.append(el); return d;
@@ -401,6 +402,7 @@ function renderSheet() {
   m.append(kvTime('Hora despertar', P, 'up', prev.up), kvTime('Hora fuera de la cuna', P, 'outcrib', prev.outcrib),
            kvInput('Hora de desayuno', D, 'breakfast', 'time'), kvInput('Nivel de hambre', D, 'hunger', null, OPT.hunger),
            txtBox(D, 'morning_notes', 'Comentarios de la mañana', [], '+ Comentarios (opcional)'));
+  renderNaps(D);
   const b = $('#s-bed'); b.innerHTML = '';
   b.append(kvInput('Quién acuesta', D, 'bed_who', null, OPT.who), kvInput('Dónde', D, 'bed_where', null, OPT.where),
            kvTime('Hora de baño', D, 'bath', cur.bed.bath), kvTime('Hora entrando en la habitación', D, 'room_in', cur.bed.room_in),
@@ -432,12 +434,58 @@ function renderSheet() {
   const dz = $('#s-doubts'); dz.innerHTML = ''; dz.append(txtBox(D, 'doubts', 'Dudas y comentarios para Mimela', [], '+ Dudas y comentarios para las asesoras'));
 }
 
+// ---------- Siestas (se rellenan a mano desde la pizarra) ----------
+const NAPS = [['s1', 'Siesta 1 (S1)'], ['s2', 'Siesta 2 (S2)'], ['s3', 'Siesta 3 (S3)'], ['pn', 'Power Nap (siesta de emergencia)']];
+const NAP_SHOWN = new Set();
+const napHas = (D, k) => Object.entries(DAYS[D] || {}).some(([f, v]) => f.startsWith(k + '_') && v);
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+function napDur(f, k) { const a = f[k + '_asleep'], z = f[k + '_awake']; if (!a || !z) return ''; let d = toMin(z) - toMin(a); if (d < 0) d += 1440; return fm(d); }
+function renderNaps(D) {
+  const box = $('#s-naps'); box.innerHTML = ''; const f = DAYS[D] || {};
+  NAPS.forEach(([k, title], i) => {
+    if (i > 0 && !napHas(D, k) && !NAP_SHOWN.has(D + k)) return;
+    const h = document.createElement('div'); h.className = 'kv'; h.style.borderTop = '0';
+    h.innerHTML = `<b style="font-size:14px">${esc(title)}</b><span class="m">${esc(napDur(f, k) ? 'duerme ' + napDur(f, k) : '')}</span>`;
+    box.append(h);
+    box.append(kvInput('Quién acuesta', D, k + '_who', null, OPT.who), kvInput('Dónde', D, k + '_where', null, OPT.where));
+    if (k !== 'pn') box.append(kvInput('Hora entrando en la habitación', D, k + '_in', 'time'));
+    box.append(kvInput('Hora que ponemos en cuna', D, k + '_crib', 'time'));
+    if (k !== 'pn') box.append(kvInput('Hora saliendo de la habitación', D, k + '_out', 'time'));
+    box.append(kvInput('Hora dormid@', D, k + '_asleep', 'time'), kvInput('Hora despierto', D, k + '_awake', 'time'));
+    if (k !== 'pn') {
+      const det = document.createElement('details'); det.open = !!(f[k + '_w1'] || f[k + '_w2'] || f[k + '_notes']);
+      det.innerHTML = '<summary>Despertares e intervención</summary>';
+      det.append(txtBox(D, k + '_notes', 'Tu intervención al acostar y su reacción (' + title + ')', BED_GROUPS, '+ Tu intervención al acostar y su reacción'));
+      for (const w of (k === 's3' ? ['w1'] : ['w1', 'w2'])) {
+        det.append(kvInput('Despertar ' + w.slice(1), D, k + '_' + w, 'time'), kvInput('↳ Tiempo despierto', D, k + '_' + w + 'd', 'text'));
+        det.lastChild.querySelector('input').placeholder = '0:05';
+      }
+      box.append(det);
+    }
+  });
+  const next = NAPS.find(([k], i) => i > 0 && !napHas(D, k) && !NAP_SHOWN.has(D + k));
+  if (next) box.append(addBtn('+ Añadir ' + next[1], () => { NAP_SHOWN.add(D + next[0]); renderNaps(D); }));
+}
+function napsText(D, add, L) {
+  const f = DAYS[D] || {};
+  NAPS.forEach(([k, title], i) => {
+    if (!napHas(D, k)) return;
+    L.push('— ' + title.toUpperCase());
+    add('Quién acuesta', f[k + '_who']); add('Dónde', f[k + '_where']); add('Hora entrando en la habitación', f[k + '_in']);
+    add('Hora que ponemos en cuna', f[k + '_crib']); add('Hora saliendo de la habitación', f[k + '_out']);
+    add('Hora dormid@', f[k + '_asleep']); add('Hora despierto', f[k + '_awake']); add('Intervención', f[k + '_notes']);
+    add('Despertar 1', f[k + '_w1'] && f[k + '_w1'] + (f[k + '_w1d'] ? ' · tiempo despierto ' + f[k + '_w1d'] : ''));
+    add('Despertar 2', f[k + '_w2'] && f[k + '_w2'] + (f[k + '_w2d'] ? ' · tiempo despierto ' + f[k + '_w2d'] : ''));
+  });
+}
+
 function sheetText(D) {
   const { prev, cur, f } = sheetData(D); const L = [];
   const add = (k, v) => { if (v) L.push(k + ': ' + v); };
   L.push('== ' + fmtLong(D) + ' ==', '— DESPERTAR');
   add('Hora despertar', prev.up && r5(prev.up.time)); add('Hora fuera de la cuna', prev.outcrib && r5(prev.outcrib.time));
   add('Hora de desayuno', f.breakfast); add('Nivel de hambre', f.hunger); add('Comentarios', f.morning_notes);
+  napsText(D, add, L);
   L.push('— ACOSTAR');
   add('Quién acuesta', f.bed_who); add('Dónde', f.bed_where); add('Hora de baño', cur.bed.bath && r5(cur.bed.bath.time));
   add('Hora entrando en la habitación', cur.bed.room_in && r5(cur.bed.room_in.time)); add('Hora que ponemos en cuna', cur.bed.crib && r5(cur.bed.crib.time));
