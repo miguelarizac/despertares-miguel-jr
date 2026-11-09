@@ -23,6 +23,12 @@
   #wake.s-done { background:var(--card); color:var(--dim); box-shadow:none; border:1px solid var(--line); }
   #wake.s-awake { background:radial-gradient(circle at 50% 35%, #7d6bb0, #4b3f78); color:#efeaff; }
   .arrow { color:var(--dim); } .m { color:var(--accent); font-size:14px; font-weight:600; }
+  .add { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .addt { font-size:14px; color:var(--text); margin-bottom:8px; }
+  .add label { display:flex; justify-content:space-between; align-items:center; color:var(--dim); font-size:14px; margin:6px 0; }
+  .add input { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px; font-size:16px; }
+  .addh { color:var(--dim); font-size:12px; margin-top:8px; }
+  li .t.edit { text-decoration:underline dotted; cursor:pointer; }
   details { margin-top:10px; } summary { color:var(--dim); font-size:14px; padding:6px 0; }
   #alt { display:block; margin:10px auto 0; background:none; border:0; color:var(--dim); font-size:14px; text-decoration:underline; padding:6px; }
   select.k.asleep { color:#8f9be0; border-color:#323d78; } select.k.up { color:#9cc488; border-color:#47693a; }
@@ -71,7 +77,16 @@
     <h2><span id="nt">Esta noche</span><span id="tn-count"></span></h2>
     <div class="tags" id="tags"></div>
     <ul id="pairs"></ul>
-    <details><summary>Editar registros</summary><ul id="tonight"></ul></details>
+    <details id="edit"><summary>Editar registros · añadir olvidado</summary>
+      <ul id="tonight"></ul>
+      <div class="add">
+        <div class="addt">Añadir despertar olvidado</div>
+        <label>Se despertó <input type="time" id="a-from"></label>
+        <label>Se volvió a dormir <input type="time" id="a-to"></label>
+        <button class="copy" id="a-save">Añadir</button>
+        <div class="addh">Deja la segunda vacía si no volvió a dormirse. Para cambiar la hora de un registro, toca la hora.</div>
+      </div>
+    </details>
     <button class="copy" id="copy" hidden>Copiar para el diario</button>
   </section>
 
@@ -94,7 +109,7 @@ const addDays = (k,n) => { const [y,m,d]=k.split('-').map(Number); return new Da
 const madridMin = () => { const p = new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); const g = t => +p.find(x=>x.type===t).value; return (g('hour')%24)*60 + g('minute'); };
 const dur = (a, b) => { const m = Math.round((new Date(b) - new Date(a)) / 60000); return Math.floor(m/60) + ' h ' + String(m%60).padStart(2,'0') + ' min'; };
 
-let current = [];   // registros de la noche en curso
+let current = []; let NIGHT = '';   // registros de la noche en curso
 
 async function api(method, p, body) {
   const r = await fetch(p, { method, headers: { 'Content-Type':'application/json', 'X-App-Key': KEY }, body: body ? JSON.stringify(body) : undefined });
@@ -155,6 +170,8 @@ function row(w) {
   const li = document.createElement('li');
   li.innerHTML = `<span class="t">${w.time}</span><span class="note"></span>`;
   li.querySelector('.note').textContent = w.note;
+  const tt = li.querySelector('.t'); tt.classList.add('edit');
+  tt.onclick = async () => { const v = prompt('Nueva hora (HH:MM)', w.time); if (!v || v === w.time) return; try { await api('PATCH', '/api/wakes/' + w.id, { night: NIGHT, time: v.trim() }); load(); } catch { toast('Hora no válida'); } };
   const sel = document.createElement('select'); sel.className = 'mini k ' + w.kind;
   for (const k of ['asleep','wake','resleep','up']) { const o = new Option(LABEL[k], k, false, k === w.kind); sel.add(o); }
   sel.onchange = async () => { await api('PATCH', '/api/wakes/' + w.id, { kind: sel.value }); load(); };
@@ -180,7 +197,7 @@ function diaryText(ws) {
 async function load() {
   const data = await api('GET', '/api/wakes?days=9');
   $('#keybox').style.display = 'none';
-  const k = data.tonight; current = data.nights[k] || [];
+  const k = data.tonight; NIGHT = k; current = data.nights[k] || [];
   $('#nt').textContent = 'Noche ' + fmtDate(k) + ' → ' + fmtDate(addDays(k, 1));
   const { asleep, up, wakes, totalAwake, avg } = summarize(current);
   $('#tn-count').textContent = wakes.length ? wakes.length + ' desp.' : '';
@@ -221,6 +238,15 @@ async function record(kind) {
 }
 $('#wake').onclick = () => record($('#wake').dataset.kind);
 $('#alt').onclick = () => { if (confirm($('#alt').textContent + '?')) record($('#alt').dataset.kind); };
+$('#a-save').onclick = async () => {
+  const f = $('#a-from').value, t = $('#a-to').value;
+  if (!f) return toast('Pon la hora en que se despertó');
+  try {
+    await api('POST', '/api/wakes', { kind: 'wake', night: NIGHT, time: f });
+    if (t) await api('POST', '/api/wakes', { kind: 'resleep', night: NIGHT, time: t });
+    $('#a-from').value = ''; $('#a-to').value = ''; toast('Añadido ' + f + (t ? '–' + t : '')); load();
+  } catch { toast('Hora no válida'); }
+};
 $('#copy').onclick = async () => { const txt = diaryText(current); try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + txt); } catch { prompt('Copia esto:', txt); } };
 $('#keysave').onclick = () => { KEY = $('#keyin').value.trim(); try { localStorage.setItem('k', KEY); } catch {} history.replaceState(null, '', location.pathname + '?k=' + encodeURIComponent(KEY)); load().catch(()=>{}); };
 

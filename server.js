@@ -39,6 +39,19 @@ function nightKey(date) {
   if (p.hh < 18) dt = new Date(dt.getTime() - 86400000);
   return dt.toISOString().slice(0, 10);
 }
+// Hora local de Madrid (noche + HH:MM) -> Date en UTC. Las horas >= 18 son de la tarde de 'night'; el resto, de la madrugada siguiente.
+function fromNightTime(night, time) {
+  const mt = /^(\d{4})-(\d{2})-(\d{2})$/.exec(night || ''); const tt = /^(\d{1,2}):(\d{2})$/.exec(time || '');
+  if (!mt || !tt) return null;
+  const hh = +tt[1], mm = +tt[2]; if (hh > 23 || mm > 59) return null;
+  const add = hh >= 18 ? 0 : 1;
+  const guess = Date.UTC(+mt[1], +mt[2] - 1, +mt[3] + add, hh, mm);
+  const p = madridParts(new Date(guess));
+  const asUtc = Date.UTC(p.y, p.m - 1, p.d, p.hh, p.mm);
+  const ts = new Date(guess - (asUtc - guess));
+  if (ts > new Date(Date.now() + 5 * 60000) || ts < new Date(Date.now() - 10 * 86400000)) return null;
+  return ts;
+}
 function hhmm(date) { const p = madridParts(date); return String(p.hh).padStart(2, '0') + ':' + String(p.mm).padStart(2, '0'); }
 
 async function listWakes(days) {
@@ -86,9 +99,11 @@ http.createServer(async (req, res) => {
       const body = await readBody(req);
       const note = (body.note || '').toString().slice(0, 200) || null;
       const kind = KINDS.includes(body.kind) ? body.kind : 'wake';
+      let at = new Date();
+      if (body.time) { at = fromNightTime(body.night, body.time); if (!at) return send(res, 400, { error: 'hora no válida' }); }
       let row;
-      if (pool) row = (await pool.query('INSERT INTO wakes (note, kind) VALUES ($1, $2) RETURNING id, ts', [note, kind])).rows[0];
-      else { row = { id: memId++, ts: new Date(), note, kind }; mem.push(row); }
+      if (pool) row = (await pool.query('INSERT INTO wakes (note, kind, ts) VALUES ($1, $2, $3) RETURNING id, ts', [note, kind, at])).rows[0];
+      else { row = { id: memId++, ts: at, note, kind }; mem.push(row); }
       return send(res, 201, { id: row.id, time: hhmm(new Date(row.ts)), kind });
     }
     const m = url.pathname.match(/^\/api\/wakes\/(\d+)$/);
@@ -98,6 +113,11 @@ http.createServer(async (req, res) => {
         const note = (body.note || '').toString().slice(0, 200) || null;
         if (pool) await pool.query('UPDATE wakes SET note=$1 WHERE id=$2', [note, +m[1]]);
         else { const r = mem.find(x => x.id === +m[1]); if (r) r.note = note; }
+      }
+      if (body.time) {
+        const at = fromNightTime(body.night, body.time); if (!at) return send(res, 400, { error: 'hora no válida' });
+        if (pool) await pool.query('UPDATE wakes SET ts=$1 WHERE id=$2', [at, +m[1]]);
+        else { const r = mem.find(x => x.id === +m[1]); if (r) r.ts = at; }
       }
       if (KINDS.includes(body.kind)) {
         if (pool) await pool.query('UPDATE wakes SET kind=$1 WHERE id=$2', [body.kind, +m[1]]);
