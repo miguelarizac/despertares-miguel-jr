@@ -72,6 +72,9 @@
   .kv .v { font-variant-numeric:tabular-nums; text-align:right; cursor:pointer; }
   .kv .v.miss { color:#555c70; }
   .kv input, .kv select { max-width:58%; }
+  .kv .r { display:flex; gap:6px; align-items:center; justify-content:flex-end; }
+  .kv .r input { width:118px; }
+  .kv .r input[type=text] { width:130px; }
   .txt { white-space:pre-wrap; font-size:14px; padding:8px 10px; margin:4px 0 6px; border:1px dashed var(--line); border-radius:10px; color:var(--text); cursor:pointer; }
   .txt.miss { color:#555c70; }
   #modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-end; justify-content:center; z-index:9; }
@@ -134,7 +137,7 @@
   <div id="view-sheet" hidden>
     <section>
       <h2 class="daynav"><button id="d-prev">‹</button><b id="d-title"></b><button id="d-next">›</button></h2>
-      <div class="hint" style="margin-top:-4px">Mismo orden que la hoja de Mimela. Toca un valor para copiarlo.</div>
+      <div class="hint" style="margin-top:-4px">Mismo orden que la hoja de Mimela. Todo se puede editar; ⧉ copia el valor.</div>
       <h3>Despertar</h3><div id="s-morning"></div>
       <h3>Acostar</h3><div id="s-bed"></div>
       <h3>Despertares nocturnos</h3><div id="s-night"></div>
@@ -339,6 +342,33 @@ function kv(label, value, copyVal) {
   if (value) d.querySelector('.v').onclick = () => copy(copyVal ?? value);
   return d;
 }
+// Hora ligada a un registro: si existe se corrige, si no se crea en esa noche; vaciarla lo borra.
+function kvTime(label, night, kind, ev, extra) {
+  const d = document.createElement('div'); d.className = 'kv';
+  d.innerHTML = `<span class="k">${esc(label)}</span><span class="r"></span>`;
+  const el = document.createElement('input'); el.type = 'time'; el.value = ev ? ev.time : '';
+  el.onchange = async () => {
+    try {
+      if (!el.value) { if (ev && confirm('¿Borrar ' + label + '?')) await api('DELETE', '/api/wakes/' + ev.id); }
+      else if (ev) await api('PATCH', '/api/wakes/' + ev.id, { night, time: el.value });
+      else await api('POST', '/api/wakes', Object.assign({ kind, night, time: el.value }, extra || {}));
+      toast('Guardado'); await load();
+    } catch { toast('Hora no válida'); el.value = ev ? ev.time : ''; }
+  };
+  const r = d.querySelector('.r'); r.append(el);
+  if (ev) r.append(copyBtn(ev.time));
+  return d;
+}
+function copyBtn(v) { return Object.assign(document.createElement('button'), { className: 'mini cp', textContent: '⧉', onclick: () => copy(v) }); }
+function kvNote(label, ev) {
+  const d = document.createElement('div'); d.className = 'kv';
+  d.innerHTML = `<span class="k">${esc(label)}</span><span class="r"></span>`;
+  const el = document.createElement('input'); el.type = 'text'; el.value = ev.note || ''; el.placeholder = 'ml o minutos';
+  el.onchange = async () => { await api('PATCH', '/api/wakes/' + ev.id, { note: el.value }); toast('Guardado'); load(); };
+  d.querySelector('.r').append(el, copyBtn(ev.note || ''));
+  return d;
+}
+function addBtn(text, fn) { return Object.assign(document.createElement('button'), { className: 'mini', textContent: text, style: 'margin:6px 0', onclick: fn }); }
 function kvInput(label, day, field, type, options) {
   const d = document.createElement('div'); d.className = 'kv';
   d.innerHTML = `<span class="k">${esc(label)}</span>`;
@@ -363,27 +393,37 @@ function renderSheet() {
   const D = SHEET_DAY; $('#d-title').textContent = fmtLong(D);
   const { prev, cur } = sheetData(D);
   const m = $('#s-morning'); m.innerHTML = '';
-  m.append(kv('Hora despertar', prev.up && prev.up.time), kv('Hora fuera de la cuna', prev.outcrib && prev.outcrib.time),
+  const P = addDays(D, -1);
+  m.append(kvTime('Hora despertar', P, 'up', prev.up), kvTime('Hora fuera de la cuna', P, 'outcrib', prev.outcrib),
            kvInput('Hora de desayuno', D, 'breakfast', 'time'), kvInput('Nivel de hambre', D, 'hunger', null, OPT.hunger),
            txtBox(D, 'morning_notes', 'Comentarios de la mañana', [], '+ Comentarios (opcional)'));
   const b = $('#s-bed'); b.innerHTML = '';
   b.append(kvInput('Quién acuesta', D, 'bed_who', null, OPT.who), kvInput('Dónde', D, 'bed_where', null, OPT.where),
-           kv('Hora de baño', cur.bed.bath && cur.bed.bath.time), kv('Hora entrando en la habitación', cur.bed.room_in && cur.bed.room_in.time),
-           kv('Hora que ponemos en cuna', cur.bed.crib && cur.bed.crib.time), kv('Hora saliendo de la habitación', cur.bed.room_out && cur.bed.room_out.time),
-           kv('Hora dormid@', cur.asleep && cur.asleep.time),
+           kvTime('Hora de baño', D, 'bath', cur.bed.bath), kvTime('Hora entrando en la habitación', D, 'room_in', cur.bed.room_in),
+           kvTime('Hora que ponemos en cuna', D, 'crib', cur.bed.crib), kvTime('Hora saliendo de la habitación', D, 'room_out', cur.bed.room_out),
+           kvTime('Hora dormid@', D, 'asleep', cur.asleep),
            txtBox(D, 'bed_notes', 'Tu intervención al acostar y su reacción', BED_GROUPS, '+ Tu intervención al acostar y su reacción'));
   const n = $('#s-night'); n.innerHTML = '';
   n.append(kv('Número de despertares', cur.wakes.length ? String(cur.wakes.length) : (cur.asleep ? '0' : '')));
   cur.wakes.forEach((x, i) => {
-    n.append(kv('Despertar ' + (i + 1), x.from.time));
-    n.append(kv('Tiempo despierto', x.to ? hm(x.min) : 'no vuelve a dormirse', x.to ? hm(x.min) : ''));
+    n.append(kvTime('Despertar ' + (i + 1), D, 'wake', x.from));
+    n.append(kvTime('↳ Vuelve a dormirse', D, 'resleep', x.to));
+    n.append(kv('↳ Tiempo despierto', x.to ? hm(x.min) : 'no vuelve a dormirse', x.to ? hm(x.min) : ''));
     const t = document.createElement('div'); t.className = 'txt' + (x.from.note ? '' : ' miss'); t.textContent = x.from.note || '+ Su reacción y tu intervención';
     t.onclick = () => editNote(x.from); n.append(t);
   });
+  n.append(addBtn('+ Añadir despertar', async () => {
+    const f = prompt('Hora en que se despertó (HH:MM)'); if (!f) return;
+    const t = prompt('Hora en que se volvió a dormir (HH:MM, vacío si no)', '');
+    try { await api('POST', '/api/wakes', { kind: 'wake', night: D, time: f.trim() }); if (t) await api('POST', '/api/wakes', { kind: 'resleep', night: D, time: t.trim() }); toast('Añadido'); load(); } catch { toast('Hora no válida'); }
+  }));
   n.append(txtBox(D, 'night_notes', 'Resumen de los despertares', WAKE_GROUPS, '+ Resumen general de la noche (opcional)'));
   const df = $('#s-df'); df.innerHTML = '';
-  cur.dfs.forEach((d, i) => { df.append(kv('Hora DF' + (i + 1), d.time)); df.append(kv('Cantidad o tiempo de toma', d.note)); });
-  if (!cur.dfs.length) df.append(kv('Sin tomas nocturnas', ''));
+  cur.dfs.forEach((d, i) => { df.append(kvTime('Hora DF' + (i + 1), D, 'df', d)); df.append(kvNote('Cantidad o tiempo de toma', d)); });
+  df.append(addBtn('+ Añadir toma', async () => {
+    const t = prompt('Hora de la toma (HH:MM)'); if (!t) return; const q = prompt('Cantidad o tiempo de toma', '150 ml'); if (q === null) return;
+    try { await api('POST', '/api/wakes', { kind: 'df', night: D, time: t.trim(), note: q }); toast('Añadida'); load(); } catch { toast('Hora no válida'); }
+  }));
   df.append(kvInput('Leche total del día', D, 'milk_total'), txtBox(D, 'df_notes', 'Comentarios tomas', [], '+ Comentarios (opcional)'));
   const dz = $('#s-doubts'); dz.innerHTML = ''; dz.append(txtBox(D, 'doubts', 'Dudas y comentarios para Mimela', [], '+ Dudas y comentarios para las asesoras'));
 }
