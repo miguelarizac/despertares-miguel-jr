@@ -72,6 +72,7 @@
   .kv .v { font-variant-numeric:tabular-nums; text-align:right; cursor:pointer; }
   .kv .v.miss { color:#555c70; }
   .kv input, .kv select { max-width:58%; }
+  .kv .exact { color:#555c70; font-size:12px; }
   .kv .r { display:flex; gap:6px; align-items:center; justify-content:flex-end; }
   .kv .r input { width:118px; }
   .kv .r input[type=text] { width:130px; }
@@ -137,7 +138,7 @@
   <div id="view-sheet" hidden>
     <section>
       <h2 class="daynav"><button id="d-prev">‹</button><b id="d-title"></b><button id="d-next">›</button></h2>
-      <div class="hint" style="margin-top:-4px">Mismo orden que la hoja de Mimela. Todo se puede editar; ⧉ copia el valor.</div>
+      <div class="hint" style="margin-top:-4px">Mismo orden que la hoja de Mimela. Horas redondeadas a 5 min como en la hoja (entre paréntesis la exacta). Todo se puede editar; ⧉ copia el valor.</div>
       <h3>Despertar</h3><div id="s-morning"></div>
       <h3>Acostar</h3><div id="s-bed"></div>
       <h3>Despertares nocturnos</h3><div id="s-night"></div>
@@ -178,6 +179,8 @@ const addDays = (k,n) => { const [y,m,d]=k.split('-').map(Number); return new Da
 const madridMin = () => { const p = new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); const g = t => +p.find(x=>x.type===t).value; return (g('hour')%24)*60 + g('minute'); };
 const mins = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
 const fm = m => m >= 60 ? Math.floor(m/60) + ' h ' + String(m%60).padStart(2,'0') + ' min' : m + ' min';
+// La hoja de Mimela solo admite horas de 5 en 5 minutos: redondeo a los 5 min más cercanos (03:17 → 03:15, 03:18 → 03:20).
+const r5 = t => { if (!t) return t; const [h, m] = t.split(':').map(Number); const v = (Math.round((h * 60 + m) / 5) * 5) % 1440; return String(Math.floor(v / 60)).padStart(2, '0') + ':' + String(v % 60).padStart(2, '0'); };
 const hm = m => String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -346,17 +349,18 @@ function kv(label, value, copyVal) {
 function kvTime(label, night, kind, ev, extra) {
   const d = document.createElement('div'); d.className = 'kv';
   d.innerHTML = `<span class="k">${esc(label)}</span><span class="r"></span>`;
-  const el = document.createElement('input'); el.type = 'time'; el.value = ev ? ev.time : '';
+  const el = document.createElement('input'); el.type = 'time'; el.step = 300; el.value = ev ? r5(ev.time) : '';
   el.onchange = async () => {
     try {
       if (!el.value) { if (ev && confirm('¿Borrar ' + label + '?')) await api('DELETE', '/api/wakes/' + ev.id); }
       else if (ev) await api('PATCH', '/api/wakes/' + ev.id, { night, time: el.value });
       else await api('POST', '/api/wakes', Object.assign({ kind, night, time: el.value }, extra || {}));
       toast('Guardado'); await load();
-    } catch { toast('Hora no válida'); el.value = ev ? ev.time : ''; }
+    } catch { toast('Hora no válida'); el.value = ev ? r5(ev.time) : ''; }
   };
   const r = d.querySelector('.r'); r.append(el);
-  if (ev) r.append(copyBtn(ev.time));
+  if (ev) r.append(copyBtn(r5(ev.time)));
+  if (ev && r5(ev.time) !== ev.time) d.querySelector('.k').append(Object.assign(document.createElement('span'), { className: 'exact', textContent: ' (' + ev.time + ')' }));
   return d;
 }
 function copyBtn(v) { return Object.assign(document.createElement('button'), { className: 'mini cp', textContent: '⧉', onclick: () => copy(v) }); }
@@ -432,18 +436,18 @@ function sheetText(D) {
   const { prev, cur, f } = sheetData(D); const L = [];
   const add = (k, v) => { if (v) L.push(k + ': ' + v); };
   L.push('== ' + fmtLong(D) + ' ==', '— DESPERTAR');
-  add('Hora despertar', prev.up && prev.up.time); add('Hora fuera de la cuna', prev.outcrib && prev.outcrib.time);
+  add('Hora despertar', prev.up && r5(prev.up.time)); add('Hora fuera de la cuna', prev.outcrib && r5(prev.outcrib.time));
   add('Hora de desayuno', f.breakfast); add('Nivel de hambre', f.hunger); add('Comentarios', f.morning_notes);
   L.push('— ACOSTAR');
-  add('Quién acuesta', f.bed_who); add('Dónde', f.bed_where); add('Hora de baño', cur.bed.bath && cur.bed.bath.time);
-  add('Hora entrando en la habitación', cur.bed.room_in && cur.bed.room_in.time); add('Hora que ponemos en cuna', cur.bed.crib && cur.bed.crib.time);
-  add('Hora saliendo de la habitación', cur.bed.room_out && cur.bed.room_out.time); add('Hora dormid@', cur.asleep && cur.asleep.time);
+  add('Quién acuesta', f.bed_who); add('Dónde', f.bed_where); add('Hora de baño', cur.bed.bath && r5(cur.bed.bath.time));
+  add('Hora entrando en la habitación', cur.bed.room_in && r5(cur.bed.room_in.time)); add('Hora que ponemos en cuna', cur.bed.crib && r5(cur.bed.crib.time));
+  add('Hora saliendo de la habitación', cur.bed.room_out && r5(cur.bed.room_out.time)); add('Hora dormid@', cur.asleep && r5(cur.asleep.time));
   add('Intervención al acostar', f.bed_notes);
   L.push('— DESPERTARES NOCTURNOS', 'Número de despertares: ' + cur.wakes.length);
-  cur.wakes.forEach((x, i) => L.push('Despertar ' + (i + 1) + ': ' + x.from.time + ' · tiempo despierto ' + (x.to ? hm(x.min) : 'no vuelve a dormirse') + (x.from.note ? ' · ' + x.from.note : '')));
+  cur.wakes.forEach((x, i) => L.push('Despertar ' + (i + 1) + ': ' + r5(x.from.time) + ' · tiempo despierto ' + (x.to ? hm(x.min) : 'no vuelve a dormirse') + (x.from.note ? ' · ' + x.from.note : '')));
   add('Resumen', f.night_notes);
   L.push('— DREAM FEEDS');
-  cur.dfs.forEach((d, i) => L.push('DF' + (i + 1) + ': ' + d.time + (d.note ? ' · ' + d.note : '')));
+  cur.dfs.forEach((d, i) => L.push('DF' + (i + 1) + ': ' + r5(d.time) + (d.note ? ' · ' + d.note : '')));
   add('Leche total del día', f.milk_total); add('Comentarios', f.df_notes);
   if (f.doubts) L.push('— DUDAS Y COMENTARIOS', f.doubts);
   return L.join('\n');
