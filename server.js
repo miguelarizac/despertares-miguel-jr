@@ -15,7 +15,7 @@ const pool = process.env.DATABASE_URL
   : null;
 
 // Respaldo en memoria si no hay base de datos (solo para pruebas locales).
-const mem = []; let memId = 1;
+const mem = []; let memId = 1; const memDays = {};
 
 async function init() {
   if (!pool) return;
@@ -25,8 +25,9 @@ async function init() {
     note TEXT
   )`);
   await pool.query(`ALTER TABLE wakes ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'wake'`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS days (day DATE PRIMARY KEY, data JSONB NOT NULL DEFAULT '{}'::jsonb)`);
 }
-const KINDS = ['asleep', 'wake', 'resleep', 'up'];
+const KINDS = ['bath', 'room_in', 'crib', 'room_out', 'asleep', 'wake', 'resleep', 'df', 'up', 'outcrib'];
 
 function madridParts(d) {
   const f = new Intl.DateTimeFormat('es-ES', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -91,6 +92,20 @@ http.createServer(async (req, res) => {
     if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
     if (!authed(req, url)) return send(res, 401, { error: 'clave incorrecta' });
 
+    if (req.method === 'GET' && url.pathname === '/api/days') {
+      let out = {};
+      if (pool) for (const r of (await pool.query("SELECT to_char(day,'YYYY-MM-DD') AS day, data FROM days WHERE day >= now() - interval '40 days'")).rows) out[r.day] = r.data;
+      else out = memDays;
+      return send(res, 200, out);
+    }
+    const dm = url.pathname.match(/^\/api\/days\/(\d{4}-\d{2}-\d{2})$/);
+    if (dm && req.method === 'PUT') {
+      const body = await readBody(req); const patch = {};
+      for (const [k, v] of Object.entries(body || {})) if (/^[a-z_0-9]{1,30}$/.test(k)) patch[k] = String(v ?? '').slice(0, 2000);
+      if (pool) await pool.query(`INSERT INTO days (day, data) VALUES ($1, $2::jsonb) ON CONFLICT (day) DO UPDATE SET data = days.data || EXCLUDED.data`, [dm[1], JSON.stringify(patch)]);
+      else memDays[dm[1]] = { ...(memDays[dm[1]] || {}), ...patch };
+      return send(res, 200, { ok: true });
+    }
     if (req.method === 'GET' && url.pathname === '/api/wakes') {
       const days = Math.min(+url.searchParams.get('days') || 8, 60);
       return send(res, 200, await listWakes(days));

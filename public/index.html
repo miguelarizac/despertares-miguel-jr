@@ -6,110 +6,179 @@
 <meta name="theme-color" content="#0b0d12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Despertares">
-<title>Despertares</title>
+<meta name="apple-mobile-web-app-title" content="Sueño">
+<title>Sueño Miguel Jr.</title>
 <style>
-  :root { --bg:#0b0d12; --card:#151924; --line:#232838; --text:#c9cede; --dim:#7a8199; --accent:#b5793f; --accent2:#8a5a2b; --danger:#a5544f; --sleep:#4f5fa8; --sleep2:#323d78; --up:#6f9a5a; --up2:#47693a; }
+  :root { --bg:#0b0d12; --card:#151924; --line:#232838; --text:#c9cede; --dim:#7a8199; --accent:#b5793f; --accent2:#8a5a2b; --danger:#a5544f;
+          --sleep:#4f5fa8; --sleep2:#323d78; --up:#6f9a5a; --up2:#47693a; --awake:#7d6bb0; --awake2:#4b3f78; --eve:#3f7f86; --eve2:#29565b; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  main { max-width:480px; margin:0 auto; padding:max(16px,env(safe-area-inset-top)) 16px 40px; }
-  header { display:flex; justify-content:space-between; align-items:baseline; margin:4px 0 18px; }
-  h1 { font-size:18px; font-weight:600; margin:0; letter-spacing:.2px; }
+  main { max-width:480px; margin:0 auto; padding:max(16px,env(safe-area-inset-top)) 16px 60px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin:4px 0 14px; gap:10px; }
+  h1 { font-size:17px; font-weight:600; margin:0; }
   #clock { color:var(--dim); font-variant-numeric:tabular-nums; }
-  #wake { display:block; width:100%; aspect-ratio:1.6; border:0; border-radius:28px; background:radial-gradient(circle at 50% 35%, var(--accent), var(--accent2)); color:#1a0f05; font-size:30px; font-weight:700; letter-spacing:.5px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  .tabs { display:flex; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:3px; }
+  .tabs button { background:none; border:0; color:var(--dim); padding:6px 12px; border-radius:9px; font-size:14px; }
+  .tabs button.on { background:var(--line); color:var(--text); }
+  #wake { display:block; width:100%; aspect-ratio:1.7; border:0; border-radius:28px; background:radial-gradient(circle at 50% 35%, var(--accent), var(--accent2)); color:#1a0f05; font-size:29px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.4); }
   #wake:active { transform:scale(.98); filter:brightness(.9); }
+  #wake small { display:block; font-size:14px; font-weight:500; opacity:.8; margin-top:6px; }
+  #wake.s-eve { background:radial-gradient(circle at 50% 35%, var(--eve), var(--eve2)); color:#e4fbff; }
   #wake.s-asleep { background:radial-gradient(circle at 50% 35%, var(--sleep), var(--sleep2)); color:#e6e9ff; }
-  #wake.s-up { background:radial-gradient(circle at 50% 35%, var(--up), var(--up2)); color:#0d1a08; }
+  #wake.s-awake { background:radial-gradient(circle at 50% 35%, var(--awake), var(--awake2)); color:#efeaff; }
+  #wake.s-up, #wake.s-outcrib { background:radial-gradient(circle at 50% 35%, var(--up), var(--up2)); color:#0d1a08; }
   #wake.s-done { background:var(--card); color:var(--dim); box-shadow:none; border:1px solid var(--line); }
-  #wake.s-awake { background:radial-gradient(circle at 50% 35%, #7d6bb0, #4b3f78); color:#efeaff; }
-  .arrow { color:var(--dim); } .m { color:var(--accent); font-size:14px; font-weight:600; }
-  .add { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
-  .addt { font-size:14px; color:var(--text); margin-bottom:8px; }
-  .add label { display:flex; justify-content:space-between; align-items:center; color:var(--dim); font-size:14px; margin:6px 0; }
-  .add input { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px; font-size:16px; }
-  .addh { color:var(--dim); font-size:12px; margin-top:8px; }
-  li .t.edit { text-decoration:underline dotted; cursor:pointer; }
-  details { margin-top:10px; } summary { color:var(--dim); font-size:14px; padding:6px 0; }
-  #alt { display:block; margin:10px auto 0; background:none; border:0; color:var(--dim); font-size:14px; text-decoration:underline; padding:6px; }
-  select.k.asleep { color:#8f9be0; border-color:#323d78; } select.k.up { color:#9cc488; border-color:#47693a; }
-  select.mini { background:none; border:1px solid var(--line); color:var(--dim); border-radius:10px; padding:5px 4px; font-size:13px; }
-  .tags { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
-  .tag { border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:13px; color:var(--text); }
-  #wake small { display:block; font-size:14px; font-weight:500; opacity:.75; margin-top:6px; }
-  #toast { min-height:24px; text-align:center; color:var(--accent); margin:10px 0 4px; font-size:15px; }
+  .steps { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; justify-content:center; }
+  .chip { border:1px solid var(--line); background:var(--card); color:var(--dim); border-radius:999px; padding:7px 11px; font-size:13px; }
+  .chip.done { color:var(--text); border-color:#3a4258; }
+  .chip.sel { background:var(--accent2); color:#fff; border-color:var(--accent2); }
+  .row2 { display:flex; gap:8px; margin-top:10px; }
+  .row2 button { flex:1; }
+  .sec { padding:11px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:15px; }
+  #alt { display:block; margin:8px auto 0; background:none; border:0; color:var(--dim); font-size:14px; text-decoration:underline; padding:6px; }
+  #toast { min-height:22px; text-align:center; color:var(--accent); margin:8px 0 2px; font-size:15px; }
   section { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:14px 16px; margin-top:14px; }
-  h2 { font-size:14px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.8px; margin:0 0 10px; display:flex; justify-content:space-between; }
+  h2 { font-size:13px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.8px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  h3 { font-size:13px; color:var(--accent); text-transform:uppercase; letter-spacing:.8px; margin:16px 0 6px; }
   ul { list-style:none; margin:0; padding:0; }
   li { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:9px 0; border-top:1px solid var(--line); }
   li:first-child { border-top:0; }
-  .t { font-size:20px; font-variant-numeric:tabular-nums; min-width:62px; }
+  .t { font-size:19px; font-variant-numeric:tabular-nums; min-width:56px; }
+  .t.edit { text-decoration:underline dotted; cursor:pointer; }
   .note { flex:1; min-width:0; color:var(--dim); font-size:14px; }
-  button.mini { background:none; border:1px solid var(--line); color:var(--dim); border-radius:10px; padding:6px 10px; font-size:13px; }
+  .arrow { color:var(--dim); } .m { color:var(--accent); font-size:14px; font-weight:600; }
+  button.mini, select.mini { background:none; border:1px solid var(--line); color:var(--dim); border-radius:10px; padding:6px 8px; font-size:13px; }
   button.mini.del { color:var(--danger); }
   .empty { color:var(--dim); font-size:14px; }
-  .summary { font-size:17px; margin-bottom:8px; }
+  .tags { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  .tag { border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:13px; }
   .copy { width:100%; margin-top:10px; padding:12px; border-radius:12px; border:1px solid var(--accent2); background:none; color:var(--accent); font-size:15px; }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   td { padding:7px 0; border-top:1px solid var(--line); vertical-align:top; }
   tr:first-child td { border-top:0; }
   td.n { text-align:right; color:var(--accent); font-weight:600; width:32px; }
-  td.d { color:var(--dim); width:96px; }
+  td.d { color:var(--dim); width:84px; }
+  details { margin-top:10px; } summary { color:var(--dim); font-size:14px; padding:6px 0; }
+  .add { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .add label { display:flex; justify-content:space-between; align-items:center; color:var(--dim); font-size:14px; margin:6px 0; gap:10px; }
+  input, select, textarea { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px; font-size:16px; font-family:inherit; }
+  textarea { width:100%; min-height:70px; resize:vertical; }
+  .hint { color:var(--dim); font-size:12px; margin-top:6px; }
+  .daynav { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .daynav button { background:none; border:1px solid var(--line); color:var(--text); border-radius:10px; padding:6px 14px; font-size:18px; }
+  .daynav b { font-size:16px; text-transform:none; letter-spacing:0; color:var(--text); }
+  .kv { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line); font-size:14px; }
+  .kv .k { color:var(--dim); }
+  .kv .v { font-variant-numeric:tabular-nums; text-align:right; cursor:pointer; }
+  .kv .v.miss { color:#555c70; }
+  .kv input, .kv select { max-width:58%; }
+  .txt { white-space:pre-wrap; font-size:14px; padding:8px 10px; margin:4px 0 6px; border:1px dashed var(--line); border-radius:10px; color:var(--text); cursor:pointer; }
+  .txt.miss { color:#555c70; }
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-end; justify-content:center; z-index:9; }
+  #modal.on { display:flex; }
+  #modal .box { background:var(--card); border:1px solid var(--line); border-radius:20px 20px 0 0; width:100%; max-width:480px; padding:16px 16px max(16px,env(safe-area-inset-bottom)); max-height:88vh; overflow:auto; }
+  #modal .lbl { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.6px; margin:12px 0 6px; }
+  #modal .chips { display:flex; flex-wrap:wrap; gap:6px; }
   #keybox { display:none; }
-  #keybox input { width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:16px; }
+  [hidden] { display:none !important; }
 </style>
 </head>
 <body>
 <main>
-  <header><h1>Despertares · Miguel Jr.</h1><span id="clock"></span></header>
+  <header>
+    <h1>Sueño · Miguel Jr.</h1>
+    <div class="tabs"><button id="tab-now" class="on">Ahora</button><button id="tab-sheet">Hoja</button></div>
+    <span id="clock"></span>
+  </header>
 
   <section id="keybox">
     <h2>Clave de acceso</h2>
-    <input id="keyin" type="text" placeholder="Escribe la clave" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <input id="keyin" type="text" placeholder="Escribe la clave" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" style="width:100%">
     <div id="keyerr" class="empty" style="margin-top:8px"></div>
     <button class="copy" id="keysave">Guardar</button>
   </section>
 
-  <button id="wake"><span id="wl">…</span><small id="ws"></small></button>
-  <button id="alt" hidden></button>
-  <div id="toast"></div>
+  <div id="view-now">
+    <button id="wake"><span id="wl">…</span><small id="ws"></small></button>
+    <div class="steps" id="steps"></div>
+    <button id="alt" hidden></button>
+    <div class="row2"><button class="sec" id="btn-df">🍼 Toma (DF)</button></div>
+    <div id="toast"></div>
 
-  <section>
-    <h2><span id="nt">Esta noche</span><span id="tn-count"></span></h2>
-    <div class="tags" id="tags"></div>
-    <ul id="pairs"></ul>
-    <details id="edit"><summary>Editar registros · añadir olvidado</summary>
-      <ul id="tonight"></ul>
-      <div class="add">
-        <div class="addt">Añadir despertar olvidado</div>
-        <label>Se despertó <input type="time" id="a-from"></label>
-        <label>Se volvió a dormir <input type="time" id="a-to"></label>
-        <button class="copy" id="a-save">Añadir</button>
-        <div class="addh">Deja la segunda vacía si no volvió a dormirse. Para cambiar la hora de un registro, toca la hora.</div>
-      </div>
-    </details>
-    <button class="copy" id="copy" hidden>Copiar para el diario</button>
-  </section>
+    <section>
+      <h2><span id="nt">Esta noche</span><span id="tn-count"></span></h2>
+      <div class="tags" id="tags"></div>
+      <ul id="pairs"></ul>
+      <details id="edit"><summary>Editar registros · añadir olvidado</summary>
+        <ul id="tonight"></ul>
+        <div class="add">
+          <div style="font-size:14px;margin-bottom:8px">Añadir despertar olvidado</div>
+          <label>Se despertó <input type="time" id="a-from"></label>
+          <label>Se volvió a dormir <input type="time" id="a-to"></label>
+          <button class="copy" id="a-save">Añadir despertar</button>
+          <div style="font-size:14px;margin:16px 0 8px">Añadir otro registro</div>
+          <label>Tipo <select id="o-kind"></select></label>
+          <label>Hora <input type="time" id="o-time"></label>
+          <button class="copy" id="o-save">Añadir</button>
+          <div class="hint">Para cambiar la hora de un registro, toca la hora. Todo se añade a la noche de esta tarjeta.</div>
+        </div>
+      </details>
+    </section>
 
-  <section>
-    <h2><span>Noches anteriores</span></h2>
-    <table id="history"></table>
-  </section>
+    <section>
+      <h2><span>Noches anteriores</span></h2>
+      <table id="history"></table>
+    </section>
+  </div>
+
+  <div id="view-sheet" hidden>
+    <section>
+      <h2 class="daynav"><button id="d-prev">‹</button><b id="d-title"></b><button id="d-next">›</button></h2>
+      <div class="hint" style="margin-top:-4px">Mismo orden que la hoja de Mimela. Toca un valor para copiarlo.</div>
+      <h3>Despertar</h3><div id="s-morning"></div>
+      <h3>Acostar</h3><div id="s-bed"></div>
+      <h3>Despertares nocturnos</h3><div id="s-night"></div>
+      <h3>Dream feeds</h3><div id="s-df"></div>
+      <h3>Dudas y comentarios</h3><div id="s-doubts"></div>
+      <button class="copy" id="s-copy">Copiar todo el día</button>
+    </section>
+  </div>
 </main>
+
+<div id="modal"><div class="box" id="mbox"></div></div>
+
 <script>
 const qs = new URLSearchParams(location.search);
 let KEY = '';
 try { KEY = qs.get('k') || localStorage.getItem('k') || ''; if (qs.get('k')) localStorage.setItem('k', KEY); } catch (e) { KEY = qs.get('k') || ''; }
 KEY = KEY.trim();
 
-const UP_FROM = 6 * 60 + 30;   // a partir de las 6:30 el botón pasa a "Se ha levantado"
-const LABEL = { asleep: 'Se ha dormido', wake: 'Despertar', resleep: 'Vuelve a dormirse', up: 'Se ha levantado' };
+const UP_FROM = 6 * 60 + 30;
+const LABEL = { bath:'Baño', room_in:'Entra en habitación', crib:'A la cuna', room_out:'Sale de habitación', asleep:'Se ha dormido', wake:'Despertar', resleep:'Vuelve a dormirse', df:'Toma (DF)', up:'Despertar mañana', outcrib:'Fuera de la cuna' };
+const BED = ['bath', 'room_in', 'crib', 'room_out', 'asleep'];
+const BEDBTN = { bath:'Baño', room_in:'Entra en la habitación', crib:'A la cuna', room_out:'Sale de la habitación', asleep:'Se ha dormido' };
+// Opciones de los desplegables de la hoja de Mimela
+const OPT = {
+  who: ['Miguel', 'Lucia', 'Abuel@', 'Guardería', 'Otros'],
+  where: ['Cuna', 'Carro', 'Hamaca', 'En brazos', 'Coche', 'Coche luego cuna', 'Porteo'],
+  hunger: ['Mucha', 'Normal', 'Poca', 'No desayuna'],
+  reactWake: ['Llora fuerte', 'Se queja', 'Jugando'],
+  interWake: ['Se duerme solo', 'RB y se duerme', 'RB, entro e intervengo con método acordado', 'RB, entro, intervengo con método acordado y tengo que coger'],
+  reactBed: ['Llora fuerte', 'Se queja', 'Se queda relajado', 'Se duerme'],
+  howBed: ['Se duerme solo', 'Acompaño con voz hasta que se relaja', 'Acompaño con tacto hata que se relaja', 'Acompaño con voz y tacto', 'Acompaño con SSSHHHH', 'Le abrazo'],
+};
+
 const $ = s => document.querySelector(s);
 const fmtDate = k => { const [y,m,d] = k.split('-').map(Number); return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'numeric',timeZone:'UTC'}); };
+const fmtLong = k => { const [y,m,d] = k.split('-').map(Number); return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'short',timeZone:'UTC'}); };
 const addDays = (k,n) => { const [y,m,d]=k.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
 const madridMin = () => { const p = new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); const g = t => +p.find(x=>x.type===t).value; return (g('hour')%24)*60 + g('minute'); };
-const dur = (a, b) => { const m = Math.round((new Date(b) - new Date(a)) / 60000); return Math.floor(m/60) + ' h ' + String(m%60).padStart(2,'0') + ' min'; };
+const mins = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
+const fm = m => m >= 60 ? Math.floor(m/60) + ' h ' + String(m%60).padStart(2,'0') + ' min' : m + ' min';
+const hm = m => String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-let current = []; let NIGHT = '';   // registros de la noche en curso
+let DATA = { tonight:'', nights:{} }, DAYS = {}, current = [], NIGHT = '', SHEET_DAY = '';
 
 async function api(method, p, body) {
   const r = await fetch(p, { method, headers: { 'Content-Type':'application/json', 'X-App-Key': KEY }, body: body ? JSON.stringify(body) : undefined });
@@ -118,126 +187,268 @@ async function api(method, p, body) {
   return r.json();
 }
 function toast(msg) { $('#toast').textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => $('#toast').textContent = '', 6000); }
+async function copy(txt) { if (!txt) return; try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + (txt.length > 60 ? txt.slice(0, 60) + '…' : txt)); } catch { prompt('Copia esto:', txt); } }
 
-const mins = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
 function summarize(ws) {
-  const asleep = ws.find(w => w.kind === 'asleep');
-  const up = [...ws].reverse().find(w => w.kind === 'up');
+  const first = k => ws.find(w => w.kind === k);
+  const lastOf = k => [...ws].reverse().find(w => w.kind === k);
+  const asleep = first('asleep'), up = lastOf('up'), outcrib = lastOf('outcrib');
   const wakes = []; let open = null;
   for (const w of ws) {
     if (w.kind === 'wake') { open = { from: w, to: null }; wakes.push(open); }
     else if (w.kind === 'resleep' && open && !open.to) { open.to = w; open.min = mins(open.from.iso, w.iso); open = null; }
   }
-  const last = [...ws].reverse().find(w => w.kind !== 'up');
-  const awake = !up && last && last.kind === 'wake' ? last : null;   // despierto ahora mismo
+  const lastSleepish = [...ws].reverse().find(w => ['asleep','wake','resleep'].includes(w.kind));
+  const awake = !up && !outcrib && lastSleepish && lastSleepish.kind === 'wake' ? lastSleepish : null;
   const closed = wakes.filter(x => x.to);
   const totalAwake = closed.reduce((a, x) => a + x.min, 0);
   const avg = closed.length ? Math.round(totalAwake / closed.length) : null;
-  return { asleep, up, wakes, awake, totalAwake, avg };
+  const dfs = ws.filter(w => w.kind === 'df');
+  const bed = Object.fromEntries(BED.map(k => [k, first(k)]));
+  return { asleep, up, outcrib, wakes, awake, totalAwake, avg, dfs, bed };
 }
-const fm = m => m >= 60 ? Math.floor(m/60) + ' h ' + String(m%60).padStart(2,'0') + ' min' : m + ' min';
-const pairTxt = x => x.from.time + (x.to ? '–' + x.to.time + ' (' + fm(x.min) + ')' : ' (no volvió a dormirse)');
 
-// Qué hace el botón ahora mismo
 function state() {
-  const { asleep, up, awake } = summarize(current);
-  if (up) return 'done';
-  if (!asleep) return 'asleep';
+  const s = summarize(current);
+  if (s.outcrib) return 'done';
+  if (s.up) return 'outcrib';
+  if (!s.asleep) return 'eve';
   const morning = madridMin() >= UP_FROM && madridMin() < 18 * 60;
-  if (awake) return morning ? 'up-awake' : 'resleep';
+  if (s.awake) return morning ? 'up-awake' : 'resleep';
   return morning ? 'up' : 'wake';
 }
 
 function renderButton() {
-  const st = state(); const b = $('#wake'); const alt = $('#alt');
-  const { awake } = summarize(current);
-  const since = awake ? 'despierto desde las ' + awake.time + ' · ' + fm(Math.max(0, mins(awake.iso, new Date()))) : '';
-  b.className = 's-' + st; b.disabled = st === 'done';
+  const st = state(); const s = summarize(current); const b = $('#wake'); const alt = $('#alt');
+  const since = s.awake ? 'despierto desde las ' + s.awake.time + ' · ' + fm(Math.max(0, mins(s.awake.iso, new Date()))) : '';
+  const lastIdx = Math.max(-1, ...BED.map((x, i) => s.bed[x] ? i : -1));
+  const nextBed = BED.find((k, i) => i > lastIdx && !s.bed[k]) || 'asleep';
   const cfg = {
-    asleep:     ['Se ha dormido', 'inicio de la noche', 'asleep', 'wake', '¿Ya estaba dormido? Anotar un despertar'],
-    wake:       ['Se ha despertado', 'pulsa al despertarse', 'wake', 'up', 'Se ha levantado ya (terminar la noche)'],
-    resleep:    ['Se ha vuelto a dormir', since, 'resleep', 'up', 'No se duerme: se ha levantado (terminar la noche)'],
-    up:         ['Se ha levantado', 'fin de la noche', 'up', 'wake', 'Solo un despertar (va a seguir durmiendo)'],
-    'up-awake': ['Se ha levantado', since + ' · fin de la noche', 'up', 'resleep', 'Se ha vuelto a dormir'],
-    done:       ['Noche terminada', 'el botón se reinicia a las 18:00', '', 'wake', 'Anotar otro despertar'],
+    eve:        [BEDBTN[nextBed], nextBed === 'asleep' ? 'inicio de la noche' : 'rutina de acostar', nextBed, 'wake', '¿Ya estaba dormido? Anotar un despertar', nextBed === 'asleep' ? 's-asleep' : 's-eve'],
+    wake:       ['Se ha despertado', 'pulsa al despertarse', 'wake', 'up', 'Despertar de la mañana (no vuelve a dormirse)', ''],
+    resleep:    ['Se ha vuelto a dormir', since, 'resleep', 'convert-up', 'No se duerme: es el despertar de la mañana', 's-awake'],
+    up:         ['Despertar de la mañana', 'se despierta para empezar el día', 'up', 'wake', 'Solo un despertar (va a seguir durmiendo)', 's-up'],
+    'up-awake': ['Fuera de la cuna', since + ' · fin de la noche', 'convert-up+outcrib', 'resleep', 'Se ha vuelto a dormir', 's-up'],
+    outcrib:    ['Fuera de la cuna', 'despertó a las ' + (s.up ? s.up.time : ''), 'outcrib', 'wake', 'Se ha vuelto a dormir (anotar despertar)', 's-outcrib'],
+    done:       ['Noche terminada', 'el botón se reinicia a las 18:00', '', 'wake', 'Anotar otro despertar', 's-done'],
   }[st];
   $('#wl').textContent = cfg[0]; $('#ws').textContent = cfg[1];
-  b.dataset.kind = cfg[2]; alt.textContent = cfg[4]; alt.dataset.kind = cfg[3]; alt.hidden = false;
-  if (st === 'resleep' || st === 'up-awake') b.classList.add('s-awake');
+  b.className = cfg[5]; b.disabled = st === 'done'; b.dataset.kind = cfg[2];
+  alt.textContent = cfg[4]; alt.dataset.kind = cfg[3]; alt.hidden = false;
+  const steps = $('#steps'); steps.innerHTML = '';
+  if (st === 'eve') for (const k of BED) {
+    const c = document.createElement('button'); c.className = 'chip' + (s.bed[k] ? ' done' : '');
+    c.textContent = (s.bed[k] ? '✓ ' + s.bed[k].time + ' ' : '') + LABEL[k];
+    c.onclick = () => s.bed[k] ? editTime(s.bed[k]) : record(k);
+    steps.append(c);
+  }
 }
 
+async function editTime(w) {
+  const v = prompt(LABEL[w.kind] + ' · nueva hora (HH:MM)', w.time); if (!v || v === w.time) return;
+  try { await api('PATCH', '/api/wakes/' + w.id, { night: w.night || NIGHT, time: v.trim() }); load(); } catch { toast('Hora no válida'); }
+}
+
+// ---------- Ventana de texto con opciones rápidas (las de la hoja) ----------
+function editText(title, value, groups) {
+  return new Promise(res => {
+    const box = $('#mbox');
+    box.innerHTML = `<h2>${esc(title)}</h2>` + groups.map((g, i) => `<div class="lbl">${esc(g[0])}</div><div class="chips">` + g[1].map(o => `<button class="chip" data-o="${esc(o)}">${esc(o)}</button>`).join('') + '</div>').join('') +
+      `<div class="lbl">Texto</div><textarea id="m-txt">${esc(value)}</textarea><div class="row2"><button class="sec" id="m-cancel">Cancelar</button><button class="sec" id="m-ok" style="border-color:var(--accent2);color:var(--accent)">Guardar</button></div>`;
+    const ta = $('#m-txt');
+    box.querySelectorAll('.chip').forEach(c => c.onclick = () => { const o = c.dataset.o; ta.value = ta.value.trim() ? ta.value.trim() + '. ' + o : o; c.classList.add('sel'); });
+    const close = v => { $('#modal').classList.remove('on'); res(v); };
+    $('#m-cancel').onclick = () => close(null); $('#m-ok').onclick = () => close(ta.value.trim());
+    $('#modal').onclick = e => { if (e.target.id === 'modal') close(null); };
+    $('#modal').classList.add('on');
+  });
+}
+const WAKE_GROUPS = [['Su reacción', OPT.reactWake], ['Tu intervención', OPT.interWake]];
+const BED_GROUPS = [['Su reacción al acostar', OPT.reactBed], ['Cómo se queda dormido', OPT.howBed]];
+async function editNote(w) {
+  const groups = w.kind === 'wake' ? WAKE_GROUPS : [];
+  const v = await editText((LABEL[w.kind] || 'Nota') + ' ' + w.time, w.note || '', groups);
+  if (v === null) return; await api('PATCH', '/api/wakes/' + w.id, { note: v }); load();
+}
+
+// ---------- Vista Ahora ----------
 function row(w) {
   const li = document.createElement('li');
-  li.innerHTML = `<span class="t">${w.time}</span><span class="note"></span>`;
+  li.innerHTML = `<span class="t edit">${w.time}</span><span class="note"></span>`;
   li.querySelector('.note').textContent = w.note;
-  const tt = li.querySelector('.t'); tt.classList.add('edit');
-  tt.onclick = async () => { const v = prompt('Nueva hora (HH:MM)', w.time); if (!v || v === w.time) return; try { await api('PATCH', '/api/wakes/' + w.id, { night: NIGHT, time: v.trim() }); load(); } catch { toast('Hora no válida'); } };
-  const sel = document.createElement('select'); sel.className = 'mini k ' + w.kind;
-  for (const k of ['asleep','wake','resleep','up']) { const o = new Option(LABEL[k], k, false, k === w.kind); sel.add(o); }
+  li.querySelector('.t').onclick = () => editTime(w);
+  const sel = document.createElement('select'); sel.className = 'mini';
+  for (const k of Object.keys(LABEL)) sel.add(new Option(LABEL[k], k, false, k === w.kind));
   sel.onchange = async () => { await api('PATCH', '/api/wakes/' + w.id, { kind: sel.value }); load(); };
-  const n = document.createElement('button'); n.className = 'mini'; n.textContent = 'Nota';
-  n.onclick = async () => { const v = prompt('Nota (opcional): cómo fue, cuánto duró…', w.note || ''); if (v === null) return; await api('PATCH', '/api/wakes/' + w.id, { note: v }); load(); };
+  const n = document.createElement('button'); n.className = 'mini'; n.textContent = 'Nota'; n.onclick = () => editNote(w);
   const d = document.createElement('button'); d.className = 'mini del'; d.textContent = '✕';
-  d.onclick = async () => { if (!confirm('¿Borrar el registro de las ' + w.time + '?')) return; await api('DELETE', '/api/wakes/' + w.id); load(); };
+  d.onclick = async () => { if (!confirm('¿Borrar ' + LABEL[w.kind] + ' de las ' + w.time + '?')) return; await api('DELETE', '/api/wakes/' + w.id); load(); };
   li.append(sel, n, d);
   return li;
 }
 
-function diaryText(ws) {
-  const { asleep, up, wakes, totalAwake, avg } = summarize(ws);
-  const parts = [];
-  if (asleep) parts.push('Se duerme ' + asleep.time + (asleep.note ? ' (' + asleep.note + ')' : ''));
-  parts.push(wakes.length ? wakes.length + ' despertar' + (wakes.length > 1 ? 'es' : '') + ': ' + wakes.map(x => pairTxt(x) + (x.from.note ? ' [' + x.from.note + ']' : '')).join(', ') : 'Sin despertares');
-  if (avg !== null) parts.push('Despierto ' + fm(totalAwake) + ' en total, media ' + fm(avg) + ' en volver a dormirse');
-  if (up) parts.push('Se levanta ' + up.time + (up.note ? ' (' + up.note + ')' : ''));
-  if (asleep && up) parts.push('Total ' + dur(asleep.iso, up.iso));
-  return parts.join(' · ');
-}
-
-async function load() {
-  const data = await api('GET', '/api/wakes?days=9');
-  $('#keybox').style.display = 'none';
-  const k = data.tonight; NIGHT = k; current = data.nights[k] || [];
+function renderNow() {
+  const k = DATA.tonight; NIGHT = k; current = (DATA.nights[k] || []).map(w => ({ ...w, night: k }));
   $('#nt').textContent = 'Noche ' + fmtDate(k) + ' → ' + fmtDate(addDays(k, 1));
-  const { asleep, up, wakes, totalAwake, avg } = summarize(current);
-  $('#tn-count').textContent = wakes.length ? wakes.length + ' desp.' : '';
+  const s = summarize(current);
+  $('#tn-count').textContent = s.wakes.length ? s.wakes.length + ' desp.' : '';
   const tags = $('#tags'); tags.innerHTML = '';
   const tag = t => { const e = document.createElement('span'); e.className = 'tag'; e.textContent = t; tags.append(e); };
-  if (asleep) tag('Duerme ' + asleep.time);
-  if (avg !== null) tag('Tarda de media ' + fm(avg));
-  if (totalAwake) tag('Despierto ' + fm(totalAwake));
-  if (up) tag('Se levanta ' + up.time);
-  if (asleep && up) tag('Noche ' + dur(asleep.iso, up.iso));
+  if (s.bed.crib) tag('Cuna ' + s.bed.crib.time);
+  if (s.asleep) tag('Duerme ' + s.asleep.time);
+  if (s.avg !== null) tag('Tarda de media ' + fm(s.avg));
+  if (s.totalAwake) tag('Despierto ' + fm(s.totalAwake));
+  s.dfs.forEach(d => tag('🍼 ' + d.time + (d.note ? ' · ' + d.note : '')));
+  if (s.up) tag('Despierta ' + s.up.time);
+  if (s.outcrib) tag('Fuera cuna ' + s.outcrib.time);
+  if (s.asleep && s.up) tag('Noche ' + fm(mins(s.asleep.iso, s.up.iso)));
   const pl = $('#pairs'); pl.innerHTML = '';
-  wakes.forEach((x, i) => { const li = document.createElement('li'); li.innerHTML = `<span class="t">${x.from.time}</span><span class="arrow">→</span><span class="t">${x.to ? x.to.time : '…'}</span><span class="note"></span><span class="m"></span>`; li.querySelector('.m').textContent = x.to ? fm(x.min) : (summarize(current).awake === x.from ? 'despierto' : 'no volvió a dormirse'); li.querySelector('.note').textContent = x.from.note; pl.append(li); });
-  if (!wakes.length) pl.innerHTML = '<li class="empty">Sin despertares.</li>';
+  s.wakes.forEach(x => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="t">${x.from.time}</span><span class="arrow">→</span><span class="t">${x.to ? x.to.time : '…'}</span><span class="note"></span><span class="m"></span>`;
+    li.querySelector('.m').textContent = x.to ? fm(x.min) : (s.awake === x.from ? 'despierto' : 'no volvió a dormirse');
+    li.querySelector('.note').textContent = x.from.note || '+ reacción';
+    li.querySelector('.note').onclick = () => editNote(x.from);
+    pl.append(li);
+  });
+  if (!s.wakes.length) pl.innerHTML = '<li class="empty">Sin despertares.</li>';
   const ul = $('#tonight'); ul.innerHTML = '';
   if (!current.length) ul.innerHTML = '<li class="empty">Nada anotado todavía.</li>';
   current.forEach(w => ul.append(row(w)));
-  $('#copy').hidden = !current.length;
   renderButton();
 
-  const tb = $('#history'); tb.innerHTML = '';
-  tb.innerHTML = '<tr><td class="d"></td><td class="empty">duerme · tarda en volver · se levanta</td><td class="n"></td></tr>';
+  const tb = $('#history');
+  tb.innerHTML = '<tr><td class="d"></td><td class="empty">duerme · tarda en volver · despierta</td><td class="n"></td></tr>';
   for (let i = 1; i <= 7; i++) {
-    const nk = addDays(k, -i); const ws = data.nights[nk] || [];
-    const s = summarize(ws);
+    const nk = addDays(k, -i); const ws = DATA.nights[nk] || []; const h = summarize(ws);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="d">${fmtDate(nk)}</td><td></td><td class="n">${s.wakes.length}</td>`;
-    tr.children[1].textContent = ws.length ? [(s.asleep ? s.asleep.time : '?'), (s.avg !== null ? 'media ' + fm(s.avg) : (s.wakes.length ? '—' : 'sin desp.')), (s.up ? s.up.time : '?')].join('  |  ') : '—';
-    tr.onclick = async () => { const txt = diaryText(ws); if (!ws.length) return; try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + txt); } catch { prompt('Copia esto:', txt); } };
+    tr.innerHTML = `<td class="d">${fmtDate(nk)}</td><td></td><td class="n">${h.wakes.length}</td>`;
+    tr.children[1].textContent = ws.length ? [(h.asleep ? h.asleep.time : '?'), (h.avg !== null ? 'media ' + fm(h.avg) : (h.wakes.length ? '—' : 'sin desp.')), (h.up ? h.up.time : '?')].join('  |  ') : '—';
+    tr.onclick = () => { SHEET_DAY = nk; showTab('sheet'); };
     tb.append(tr);
   }
+}
+
+// ---------- Vista Hoja: columna del día D de la hoja de Mimela ----------
+// Columna D = mañana del día D (fin de la noche D-1) + acostar, noche y tomas del día D.
+async function saveDay(day, patch) { DAYS[day] = { ...(DAYS[day] || {}), ...patch }; await api('PUT', '/api/days/' + day, patch); toast('Guardado'); }
+
+function kv(label, value, copyVal) {
+  const d = document.createElement('div'); d.className = 'kv';
+  d.innerHTML = `<span class="k">${esc(label)}</span><span class="v${value ? '' : ' miss'}">${esc(value || '—')}</span>`;
+  if (value) d.querySelector('.v').onclick = () => copy(copyVal ?? value);
+  return d;
+}
+function kvInput(label, day, field, type, options) {
+  const d = document.createElement('div'); d.className = 'kv';
+  d.innerHTML = `<span class="k">${esc(label)}</span>`;
+  let el;
+  if (options) { el = document.createElement('select'); el.add(new Option('—', '')); options.forEach(o => el.add(new Option(o, o))); }
+  else { el = document.createElement('input'); el.type = type || 'text'; }
+  el.value = (DAYS[day] || {})[field] || '';
+  el.onchange = () => saveDay(day, { [field]: el.value });
+  d.append(el); return d;
+}
+function txtBox(day, field, title, groups, placeholder) {
+  const d = document.createElement('div'); const v = (DAYS[day] || {})[field] || '';
+  d.className = 'txt' + (v ? '' : ' miss'); d.textContent = v || placeholder;
+  d.onclick = async () => { const nv = await editText(title, (DAYS[day] || {})[field] || '', groups); if (nv === null) return; await saveDay(day, { [field]: nv }); renderSheet(); };
+  return d;
+}
+function sheetData(D) {
+  return { prev: summarize(DATA.nights[addDays(D, -1)] || []), cur: summarize(DATA.nights[D] || []), f: DAYS[D] || {} };
+}
+
+function renderSheet() {
+  const D = SHEET_DAY; $('#d-title').textContent = fmtLong(D);
+  const { prev, cur } = sheetData(D);
+  const m = $('#s-morning'); m.innerHTML = '';
+  m.append(kv('Hora despertar', prev.up && prev.up.time), kv('Hora fuera de la cuna', prev.outcrib && prev.outcrib.time),
+           kvInput('Hora de desayuno', D, 'breakfast', 'time'), kvInput('Nivel de hambre', D, 'hunger', null, OPT.hunger),
+           txtBox(D, 'morning_notes', 'Comentarios de la mañana', [], '+ Comentarios (opcional)'));
+  const b = $('#s-bed'); b.innerHTML = '';
+  b.append(kvInput('Quién acuesta', D, 'bed_who', null, OPT.who), kvInput('Dónde', D, 'bed_where', null, OPT.where),
+           kv('Hora de baño', cur.bed.bath && cur.bed.bath.time), kv('Hora entrando en la habitación', cur.bed.room_in && cur.bed.room_in.time),
+           kv('Hora que ponemos en cuna', cur.bed.crib && cur.bed.crib.time), kv('Hora saliendo de la habitación', cur.bed.room_out && cur.bed.room_out.time),
+           kv('Hora dormid@', cur.asleep && cur.asleep.time),
+           txtBox(D, 'bed_notes', 'Tu intervención al acostar y su reacción', BED_GROUPS, '+ Tu intervención al acostar y su reacción'));
+  const n = $('#s-night'); n.innerHTML = '';
+  n.append(kv('Número de despertares', cur.wakes.length ? String(cur.wakes.length) : (cur.asleep ? '0' : '')));
+  cur.wakes.forEach((x, i) => {
+    n.append(kv('Despertar ' + (i + 1), x.from.time));
+    n.append(kv('Tiempo despierto', x.to ? hm(x.min) : 'no vuelve a dormirse', x.to ? hm(x.min) : ''));
+    const t = document.createElement('div'); t.className = 'txt' + (x.from.note ? '' : ' miss'); t.textContent = x.from.note || '+ Su reacción y tu intervención';
+    t.onclick = () => editNote(x.from); n.append(t);
+  });
+  n.append(txtBox(D, 'night_notes', 'Resumen de los despertares', WAKE_GROUPS, '+ Resumen general de la noche (opcional)'));
+  const df = $('#s-df'); df.innerHTML = '';
+  cur.dfs.forEach((d, i) => { df.append(kv('Hora DF' + (i + 1), d.time)); df.append(kv('Cantidad o tiempo de toma', d.note)); });
+  if (!cur.dfs.length) df.append(kv('Sin tomas nocturnas', ''));
+  df.append(kvInput('Leche total del día', D, 'milk_total'), txtBox(D, 'df_notes', 'Comentarios tomas', [], '+ Comentarios (opcional)'));
+  const dz = $('#s-doubts'); dz.innerHTML = ''; dz.append(txtBox(D, 'doubts', 'Dudas y comentarios para Mimela', [], '+ Dudas y comentarios para las asesoras'));
+}
+
+function sheetText(D) {
+  const { prev, cur, f } = sheetData(D); const L = [];
+  const add = (k, v) => { if (v) L.push(k + ': ' + v); };
+  L.push('== ' + fmtLong(D) + ' ==', '— DESPERTAR');
+  add('Hora despertar', prev.up && prev.up.time); add('Hora fuera de la cuna', prev.outcrib && prev.outcrib.time);
+  add('Hora de desayuno', f.breakfast); add('Nivel de hambre', f.hunger); add('Comentarios', f.morning_notes);
+  L.push('— ACOSTAR');
+  add('Quién acuesta', f.bed_who); add('Dónde', f.bed_where); add('Hora de baño', cur.bed.bath && cur.bed.bath.time);
+  add('Hora entrando en la habitación', cur.bed.room_in && cur.bed.room_in.time); add('Hora que ponemos en cuna', cur.bed.crib && cur.bed.crib.time);
+  add('Hora saliendo de la habitación', cur.bed.room_out && cur.bed.room_out.time); add('Hora dormid@', cur.asleep && cur.asleep.time);
+  add('Intervención al acostar', f.bed_notes);
+  L.push('— DESPERTARES NOCTURNOS', 'Número de despertares: ' + cur.wakes.length);
+  cur.wakes.forEach((x, i) => L.push('Despertar ' + (i + 1) + ': ' + x.from.time + ' · tiempo despierto ' + (x.to ? hm(x.min) : 'no vuelve a dormirse') + (x.from.note ? ' · ' + x.from.note : '')));
+  add('Resumen', f.night_notes);
+  L.push('— DREAM FEEDS');
+  cur.dfs.forEach((d, i) => L.push('DF' + (i + 1) + ': ' + d.time + (d.note ? ' · ' + d.note : '')));
+  add('Leche total del día', f.milk_total); add('Comentarios', f.df_notes);
+  if (f.doubts) L.push('— DUDAS Y COMENTARIOS', f.doubts);
+  return L.join('\n');
+}
+
+function showTab(t) {
+  $('#tab-now').classList.toggle('on', t === 'now'); $('#tab-sheet').classList.toggle('on', t === 'sheet');
+  $('#view-now').hidden = t !== 'now'; $('#view-sheet').hidden = t !== 'sheet';
+  if (t === 'sheet') { if (!SHEET_DAY) SHEET_DAY = DATA.tonight; renderSheet(); }
+  window.scrollTo(0, 0);
+}
+
+async function load() {
+  const [d, days] = await Promise.all([api('GET', '/api/wakes?days=16'), api('GET', '/api/days')]);
+  DATA = d; DAYS = days; $('#keybox').style.display = 'none';
+  renderNow(); if (!$('#view-sheet').hidden) renderSheet();
 }
 
 async function record(kind) {
   if (!kind) return;
   if (navigator.vibrate) navigator.vibrate(30);
-  try { const r = await api('POST', '/api/wakes', { kind }); toast(LABEL[kind] + ': anotado a las ' + r.time); load(); }
-  catch (e) { toast(e.message === 'clave' ? 'Falta la clave' : 'No se pudo guardar, reintenta'); }
+  try {
+    const s = summarize(current);
+    if (kind.startsWith('convert-up')) {   // el despertar abierto pasa a ser el despertar de la mañana
+      await api('PATCH', '/api/wakes/' + s.awake.id, { kind: 'up' });
+      if (kind.endsWith('outcrib')) { const r = await api('POST', '/api/wakes', { kind: 'outcrib' }); toast('Fuera de la cuna ' + r.time + ' · despertó ' + s.awake.time); }
+      else toast('Despertar de la mañana: ' + s.awake.time);
+    } else {
+      const body = { kind };
+      if (kind === 'df') { const q = prompt('Toma (DF): cantidad o tiempo de toma', '150 ml'); if (q === null) return; body.note = q; }
+      const r = await api('POST', '/api/wakes', body); toast(LABEL[kind] + ': ' + r.time);
+    }
+    load();
+  } catch (e) { toast(e.message === 'clave' ? 'Falta la clave' : 'No se pudo guardar, reintenta'); }
 }
+
 $('#wake').onclick = () => record($('#wake').dataset.kind);
 $('#alt').onclick = () => { if (confirm($('#alt').textContent + '?')) record($('#alt').dataset.kind); };
+$('#btn-df').onclick = () => record('df');
+$('#tab-now').onclick = () => showTab('now');
+$('#tab-sheet').onclick = () => showTab('sheet');
+$('#d-prev').onclick = () => { SHEET_DAY = addDays(SHEET_DAY, -1); renderSheet(); };
+$('#d-next').onclick = () => { SHEET_DAY = addDays(SHEET_DAY, 1); renderSheet(); };
+$('#s-copy').onclick = () => copy(sheetText(SHEET_DAY));
+for (const k of Object.keys(LABEL)) $('#o-kind').add(new Option(LABEL[k], k));
 $('#a-save').onclick = async () => {
   const f = $('#a-from').value, t = $('#a-to').value;
   if (!f) return toast('Pon la hora en que se despertó');
@@ -247,10 +458,14 @@ $('#a-save').onclick = async () => {
     $('#a-from').value = ''; $('#a-to').value = ''; toast('Añadido ' + f + (t ? '–' + t : '')); load();
   } catch { toast('Hora no válida'); }
 };
-$('#copy').onclick = async () => { const txt = diaryText(current); try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + txt); } catch { prompt('Copia esto:', txt); } };
+$('#o-save').onclick = async () => {
+  const k = $('#o-kind').value, t = $('#o-time').value; if (!t) return toast('Pon la hora');
+  let note = null; if (k === 'df') { note = prompt('Cantidad o tiempo de toma', '150 ml'); if (note === null) return; }
+  try { await api('POST', '/api/wakes', { kind: k, night: NIGHT, time: t, note }); $('#o-time').value = ''; toast('Añadido ' + LABEL[k] + ' ' + t); load(); } catch { toast('Hora no válida'); }
+};
 $('#keysave').onclick = () => { KEY = $('#keyin').value.trim(); try { localStorage.setItem('k', KEY); } catch {} history.replaceState(null, '', location.pathname + '?k=' + encodeURIComponent(KEY)); load().catch(()=>{}); };
 
-function tick() { $('#clock').textContent = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'}); renderButton(); }
+function tick() { $('#clock').textContent = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'}); if (DATA.tonight) renderButton(); }
 tick(); setInterval(tick, 15000);
 load().catch(() => {});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load().catch(()=>{}); });
