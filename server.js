@@ -25,6 +25,8 @@ async function init() {
     note TEXT
   )`);
   await pool.query(`ALTER TABLE wakes ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'wake'`);
+  await pool.query(`ALTER TABLE wakes ADD COLUMN IF NOT EXISTS client_id TEXT`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS wakes_client_id ON wakes (client_id)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS days (day DATE PRIMARY KEY, data JSONB NOT NULL DEFAULT '{}'::jsonb)`);
 }
 const KINDS = ['bath', 'room_in', 'crib', 'room_out', 'asleep', 'wake', 'resleep', 'df', 'up', 'outcrib'];
@@ -115,11 +117,22 @@ http.createServer(async (req, res) => {
       const note = (body.note || '').toString().slice(0, 200) || null;
       const kind = KINDS.includes(body.kind) ? body.kind : 'wake';
       let at = new Date();
-      if (body.time) { at = fromNightTime(body.night, body.time); if (!at) return send(res, 400, { error: 'hora no válida' }); }
+      if (body.ts) {
+        // Hora exacta del cliente (ISO 8601), p. ej. pulsaciones guardadas sin conexión en la app de iOS.
+        at = new Date(body.ts);
+        if (isNaN(at) || at > new Date(Date.now() + 5 * 60000) || at < new Date(Date.now() - 10 * 86400000)) return send(res, 400, { error: 'hora no válida' });
+      } else if (body.time) { at = fromNightTime(body.night, body.time); if (!at) return send(res, 400, { error: 'hora no válida' }); }
+      // client_id opcional: si se reenvía el mismo evento (reintento), no se duplica.
+      const clientId = body.client_id ? String(body.client_id).slice(0, 64) : null;
       let row;
-      if (pool) row = (await pool.query('INSERT INTO wakes (note, kind, ts) VALUES ($1, $2, $3) RETURNING id, ts', [note, kind, at])).rows[0];
-      else { row = { id: memId++, ts: at, note, kind }; mem.push(row); }
-      return send(res, 201, { id: row.id, time: hhmm(new Date(row.ts)), kind });
+      if (pool) row = (await pool.query(`INSERT INTO wakes (note, kind, ts, client_id) VALUES ($1, $2, $3, $4)
+        ON CONFLICT (client_id) DO UPDATE SET client_id = EXCLUDED.client_id RETURNING id, ts, kind`, [note, kind, at, clientId])).rows[0];
+      else {
+        row = clientId && mem.find(r => r.client_id === clientId);
+        if (!row) { row = { id: memId++, ts: at, note, kind, client_id: clientId }; mem.push(row); }
+      }
+      const ts = new Date(row.ts);
+      return send(res, 201, { id: row.id, time: hhmm(ts), iso: ts.toISOString(), night: nightKey(ts), kind: row.kind });
     }
     const m = url.pathname.match(/^\/api\/wakes\/(\d+)$/);
     if (m && req.method === 'PATCH') {
