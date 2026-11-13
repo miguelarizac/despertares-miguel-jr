@@ -83,6 +83,12 @@
   #modal .box { background:var(--card); border:1px solid var(--line); border-radius:20px 20px 0 0; width:100%; max-width:480px; padding:16px 16px max(16px,env(safe-area-inset-bottom)); max-height:88vh; overflow:auto; }
   #modal .lbl { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.6px; margin:12px 0 6px; }
   #modal .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .sync { font-size:12px; color:var(--dim); text-align:right; margin:-8px 0 10px; }
+  .sync.ok { color:#6f9a5a; } .sync.wait { color:var(--accent); } .sync.off { color:var(--danger); }
+  .by { color:#6c7390; font-size:11px; margin-left:4px; white-space:nowrap; }
+  .pend { color:var(--accent); font-size:11px; margin-left:4px; }
+  #changes li { font-size:13px; color:var(--dim); display:block; }
+  #changes b { color:var(--text); font-weight:600; }
   #keybox { display:none; }
   [hidden] { display:none !important; }
 </style>
@@ -94,6 +100,7 @@
     <div class="tabs"><button id="tab-now" class="on">Ahora</button><button id="tab-sheet">Hoja</button></div>
     <span id="clock"></span>
   </header>
+  <div id="sync" class="sync">…</div>
 
   <section id="keybox">
     <h2>Clave de acceso</h2>
@@ -132,6 +139,10 @@
     <section>
       <h2><span>Noches anteriores</span></h2>
       <table id="history"></table>
+    </section>
+
+    <section>
+      <details id="hist"><summary style="padding:0">HISTORIAL DE CAMBIOS · QUIÉN HA HECHO QUÉ</summary><ul id="changes" style="margin-top:8px"></ul></details>
     </section>
   </div>
 
@@ -187,11 +198,32 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 
 let DATA = { tonight:'', nights:{} }, DAYS = {}, current = [], NIGHT = '', SHEET_DAY = '';
 
-async function api(method, p, body) {
-  const r = await fetch(p, { method, headers: { 'Content-Type':'application/json', 'X-App-Key': KEY }, body: body ? JSON.stringify(body) : undefined });
-  if (r.status === 401) { $('#keybox').style.display = 'block'; if (KEY) $('#keyerr').textContent = 'Clave incorrecta (' + KEY.length + ' caracteres).'; throw new Error('clave'); }
-  if (!r.ok) throw new Error('error ' + r.status);
-  return r.json();
+const ABBR = n => n ? (n === 'Sin identificar' ? '?' : n) : '';
+function byTag(w) {
+  const sp = document.createElement('span');
+  if (w.pending) { sp.className = 'pend'; sp.textContent = '· sin enviar'; return sp; }
+  const who = w.upd && w.upd !== w.by ? (w.by ? w.by + ', editado por ' + w.upd : 'editado por ' + w.upd) : w.by;
+  sp.className = 'by'; sp.textContent = who ? '· ' + ABBR(who) : ''; return sp;
+}
+const ACT = { add: 'añadió', edit: 'cambió', delete: 'borró', day: 'rellenó en la hoja' };
+async function loadChanges() {
+  if (!$('#hist').open) return;
+  const ul = $('#changes'); ul.innerHTML = '<li>Cargando…</li>';
+  try {
+    const rows = await net('GET', '/api/changes?limit=60');
+    ul.innerHTML = '';
+    for (const c of rows) {
+      const d = c.detail || {}; const li = document.createElement('li');
+      const when = new Date(c.iso).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      let what;
+      if (c.action === 'day') what = Object.entries(d).filter(([k]) => k !== 'day').map(([k, v]) => k + ' = ' + (v || '—')).join(', ') + ' (día ' + fmtDate(d.day) + ')';
+      else if (c.action === 'edit') what = (LABEL[d.was && d.was.kind] || 'registro') + ' ' + (d.was ? d.was.time : '') + ' → ' + [d.kind && LABEL[d.kind], d.time, 'note' in d ? 'nota «' + (d.note || '') + '»' : ''].filter(Boolean).join(', ');
+      else what = (LABEL[d.kind] || d.kind) + ' ' + (d.time || '') + (d.night ? ' (noche ' + fmtDate(d.night) + ')' : '') + (d.note ? ' «' + d.note + '»' : '');
+      li.innerHTML = `${esc(when)} · <b>${esc(c.by || '?')}</b> ${esc(ACT[c.action] || c.action)} ${esc(what)}`;
+      ul.append(li);
+    }
+    if (!rows.length) ul.innerHTML = '<li>Aún no hay cambios registrados.</li>';
+  } catch { ul.innerHTML = '<li>No se pudo cargar (servidor dormido). Vuelve a intentarlo en un minuto.</li>'; wakeServer(); }
 }
 function toast(msg) { $('#toast').textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => $('#toast').textContent = '', 6000); }
 async function copy(txt) { if (!txt) return; try { await navigator.clipboard.writeText(txt); toast('Copiado: ' + (txt.length > 60 ? txt.slice(0, 60) + '…' : txt)); } catch { prompt('Copia esto:', txt); } }
@@ -283,6 +315,7 @@ function row(w) {
   const li = document.createElement('li');
   li.innerHTML = `<span class="t edit">${w.time}</span><span class="note"></span>`;
   li.querySelector('.note').textContent = w.note;
+  li.querySelector('.note').append(byTag(w));
   li.querySelector('.t').onclick = () => editTime(w);
   const sel = document.createElement('select'); sel.className = 'mini';
   for (const k of Object.keys(LABEL)) sel.add(new Option(LABEL[k], k, false, k === w.kind));
@@ -361,6 +394,7 @@ function kvTime(label, night, kind, ev, extra) {
   };
   const r = d.querySelector('.r'); r.append(el);
   if (ev) r.append(copyBtn(r5(ev.time)));
+  if (ev) d.querySelector('.k').append(byTag(ev));
   if (ev && r5(ev.time) !== ev.time) d.querySelector('.k').append(Object.assign(document.createElement('span'), { className: 'exact', textContent: ' (' + ev.time + ')' }));
   return d;
 }
@@ -382,6 +416,8 @@ function kvInput(label, day, field, type, options) {
   else { el = document.createElement('input'); el.type = type || 'text'; if (type === 'time') el.step = 300; }
   el.value = (DAYS[day] || {})[field] || '';
   el.onchange = () => saveDay(day, { [field]: el.value });
+  const who = ((DAYS[day] || {})._by || {})[field];
+  if (who && el.value) d.querySelector('.k').append(Object.assign(document.createElement('span'), { className: 'by', textContent: '· ' + ABBR(who) }));
   d.append(el); return d;
 }
 function txtBox(day, field, title, groups, placeholder) {
@@ -508,11 +544,156 @@ function showTab(t) {
   window.scrollTo(0, 0);
 }
 
-async function load() {
-  const [d, days] = await Promise.all([api('GET', '/api/wakes?days=16'), api('GET', '/api/days')]);
-  DATA = d; DAYS = days; $('#keybox').style.display = 'none';
-  renderNow(); if (!$('#view-sheet').hidden) renderSheet();
+// ===================== Sincronización a prueba de Render dormido =====================
+// Todo cambio se apunta al momento en el móvil (con su hora exacta) y se envía en cuanto el servidor responde.
+// Si Render está dormido, la página lo despierta (iframe con su página de espera) y reintenta sola.
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let SNAP = LS.get('snap', { data: { tonight: '', nights: {} }, days: {} });
+let OUTBOX = LS.get('outbox', []);
+let IDMAP = LS.get('idmap', {});
+let ME = LS.get('me', '');
+let ONLINE = null, SYNCING = false, RETRY = null, WAKING = 0, FAILS = 0;
+
+const mParts = d => { const p = Object.fromEntries(new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d).map(x => [x.type, x.value])); return { y: +p.year, m: +p.month, d: +p.day, hh: +p.hour % 24, mm: +p.minute }; };
+const cNightKey = d => { const p = mParts(d); let t = Date.UTC(p.y, p.m - 1, p.d); if (p.hh < 18) t -= 86400000; return new Date(t).toISOString().slice(0, 10); };
+const cHHMM = d => { const p = mParts(d); return String(p.hh).padStart(2, '0') + ':' + String(p.mm).padStart(2, '0'); };
+function cFromNightTime(night, time) {
+  const mt = /^(\d{4})-(\d{2})-(\d{2})$/.exec(night || ''); const tt = /^(\d{1,2}):(\d{2})$/.exec((time || '').trim());
+  if (!mt || !tt || +tt[1] > 23 || +tt[2] > 59) return null;
+  const hh = +tt[1], mm = +tt[2], guess = Date.UTC(+mt[1], +mt[2] - 1, +mt[3] + (hh >= 18 ? 0 : 1), hh, mm);
+  const p = mParts(new Date(guess)); const ts = new Date(guess - (Date.UTC(p.y, p.m - 1, p.d, p.hh, p.mm) - guess));
+  if (ts > new Date(Date.now() + 5 * 60000) || ts < new Date(Date.now() - 10 * 86400000)) return null;
+  return ts;
 }
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const persist = () => { LS.set('snap', SNAP); LS.set('outbox', OUTBOX); LS.set('idmap', IDMAP); };
+
+function findEv(view, id) {
+  const cid = String(id).startsWith('c:') ? String(id).slice(2) : null;
+  const sid = cid && IDMAP[cid] ? IDMAP[cid] : (cid ? null : +id);
+  for (const [k, list] of Object.entries(view.data.nights)) {
+    const i = list.findIndex(w => (sid != null && w.id === sid) || (cid && (w.id === 'c:' + cid || w.client_id === cid)));
+    if (i >= 0) return { k, list, i, w: list[i] };
+  }
+  return null;
+}
+function placeEv(view, w) {
+  const k = cNightKey(new Date(w.iso)); (view.data.nights[k] ||= []).push(w);
+  view.data.nights[k].sort((a, b) => a.iso < b.iso ? -1 : 1);
+}
+function applyOp(view, op) {
+  if (op.t === 'post') {
+    if (findEv(view, 'c:' + op.cid)) return;
+    const iso = op.body.ts || (cFromNightTime(op.body.night, op.body.time) || new Date()).toISOString();
+    placeEv(view, { id: 'c:' + op.cid, client_id: op.cid, time: cHHMM(new Date(iso)), iso, note: op.body.note || '', kind: op.body.kind, by: ME, pending: true });
+  } else if (op.t === 'patch' || op.t === 'del') {
+    const f = findEv(view, op.id); if (!f) return;
+    if (op.t === 'del') { f.list.splice(f.i, 1); return; }
+    const w = { ...f.w, pending: true, upd: ME };
+    if ('note' in op.body) w.note = op.body.note || '';
+    if (op.body.kind) w.kind = op.body.kind;
+    const at = op.body.ts ? new Date(op.body.ts) : (op.body.time ? cFromNightTime(op.body.night, op.body.time) : null);
+    f.list.splice(f.i, 1);
+    if (at) { w.iso = at.toISOString(); w.time = cHHMM(at); }
+    placeEv(view, w);
+  } else if (op.t === 'day') {
+    const cur = view.days[op.day] || {}; view.days[op.day] = { ...cur, ...op.body, _by: { ...(cur._by || {}), ...Object.fromEntries(Object.keys(op.body).map(k => [k, ME])) } };
+  }
+}
+function view() {
+  const v = JSON.parse(JSON.stringify({ data: SNAP.data, days: SNAP.days }));
+  v.data.tonight = cNightKey(new Date());
+  for (const op of OUTBOX) applyOp(v, op);
+  return v;
+}
+
+async function net(method, p, body, timeout = 12000) {
+  const ac = new AbortController(); const t = setTimeout(() => ac.abort(), timeout);
+  let r;
+  try { r = await fetch(p, { method, signal: ac.signal, cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-App-Key': KEY }, body: body ? JSON.stringify(body) : undefined }); }
+  catch { throw new Error('offline'); } finally { clearTimeout(t); }
+  if (r.status === 401) { $('#keybox').style.display = 'block'; if (KEY) $('#keyerr').textContent = 'Clave incorrecta (' + KEY.length + ' caracteres).'; throw new Error('clave'); }
+  if (!(r.headers.get('content-type') || '').includes('json')) throw new Error('offline');   // página de espera de Render
+  if (r.status >= 500) throw new Error('offline');
+  const j = await r.json();
+  if (!r.ok) { const e = new Error('rechazado'); e.detail = j.error; throw e; }
+  return j;
+}
+
+// Despierta Render cargando su página de espera en un marco invisible (esa página es la que arranca el servidor).
+function wakeServer() {
+  if (Date.now() - WAKING < 90000) return; WAKING = Date.now();
+  const f = document.createElement('iframe'); f.style.display = 'none'; f.src = '/healthz?wake=' + Date.now();
+  document.body.append(f); setTimeout(() => f.remove(), 90000);
+}
+
+// Cambios: se aplican al momento en el móvil y quedan en cola hasta que el servidor los confirma.
+async function api(method, p, body) {
+  if (method === 'GET') return net('GET', p);
+  let op;
+  const id = p.split('/').pop();
+  if (method === 'POST' && p === '/api/wakes') {
+    const b = { ...body }; if (!b.ts && !b.time) b.ts = new Date().toISOString();
+    if (!b.ts && !cFromNightTime(b.night, b.time)) throw new Error('Hora no válida');
+    op = { t: 'post', cid: uid(), body: b };
+  } else if (method === 'PATCH') {
+    if (body.time && !cFromNightTime(body.night, body.time)) throw new Error('Hora no válida');
+    op = { t: 'patch', id, body };
+  } else if (method === 'DELETE') op = { t: 'del', id };
+  else if (method === 'PUT') op = { t: 'day', day: id, body };
+  // Si el registro aún no ha llegado al servidor, se corrige directamente su alta pendiente.
+  if ((op.t === 'patch' || op.t === 'del') && String(op.id).startsWith('c:') && !IDMAP[op.id.slice(2)]) {
+    const post = OUTBOX.find(o => o.t === 'post' && o.cid === op.id.slice(2));
+    if (post) {
+      if (op.t === 'del') OUTBOX = OUTBOX.filter(o => o !== post);
+      else { if (op.body.time) delete post.body.ts; Object.assign(post.body, op.body); }
+      persist(); render(); return { ok: true };
+    }
+  }
+  OUTBOX.push(op); persist(); render(); sync();
+  if (op.t === 'post') { const iso = op.body.ts || cFromNightTime(op.body.night, op.body.time).toISOString(); return { id: 'c:' + op.cid, time: cHHMM(new Date(iso)), kind: op.body.kind }; }
+  return { ok: true };
+}
+
+async function sync() {
+  if (SYNCING) return; SYNCING = true; clearTimeout(RETRY);
+  try {
+    while (OUTBOX.length) {
+      const op = OUTBOX[0];
+      const sid = id => String(id).startsWith('c:') ? IDMAP[String(id).slice(2)] : id;
+      try {
+        if (op.t === 'post') { const r = await net('POST', '/api/wakes', { ...op.body, client_id: op.cid }); IDMAP[op.cid] = r.id; }
+        else if (op.t === 'patch') { const s = sid(op.id); if (s) await net('PATCH', '/api/wakes/' + s, op.body); }
+        else if (op.t === 'del') { const s = sid(op.id); if (s) await net('DELETE', '/api/wakes/' + s); }
+        else if (op.t === 'day') await net('PUT', '/api/days/' + op.day, op.body);
+      } catch (e) {
+        if (e.message === 'rechazado') { toast('Un cambio no se pudo guardar: ' + (e.detail || 'dato no válido')); }
+        else throw e;
+      }
+      OUTBOX.shift(); persist();
+    }
+    const [d, days] = await Promise.all([net('GET', '/api/wakes?days=16'), net('GET', '/api/days')]);
+    SNAP = { data: d, days }; persist();
+    if (!ME || Math.random() < 0.2) { try { ME = (await net('GET', '/api/me')).user; LS.set('me', ME); } catch {} }
+    ONLINE = true; FAILS = 0; $('#keybox').style.display = 'none';
+  } catch (e) {
+    if (e.message === 'clave') { ONLINE = false; SYNCING = false; render(); return; }
+    ONLINE = false; FAILS++; wakeServer();
+    RETRY = setTimeout(sync, Math.min(4000 * FAILS, 20000));
+  }
+  SYNCING = false; render();
+}
+
+function render() {
+  const v = view(); DATA = v.data; DAYS = v.days;
+  renderNow(); if (!$('#view-sheet').hidden) renderSheet();
+  const st = $('#sync'); const n = OUTBOX.length;
+  st.className = 'sync ' + (n ? 'wait' : ONLINE === false ? 'off' : 'ok');
+  st.textContent = n ? '⏳ ' + n + ' sin enviar' + (ONLINE === false ? ' · despertando servidor…' : '…')
+                     : ONLINE === false ? '⚠︎ Sin conexión con el servidor · reintentando' : (ONLINE ? '✓ Al día' + (ME ? ' · ' + ME : '') : '…');
+}
+async function load() { render(); return sync(); }
 
 async function record(kind) {
   if (!kind) return;
@@ -561,6 +742,10 @@ function tick() { $('#clock').textContent = new Date().toLocaleTimeString('es-ES
 tick(); setInterval(tick, 15000);
 load().catch(() => {});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load().catch(()=>{}); });
+window.addEventListener('online', () => sync());
+setInterval(() => { if (!document.hidden) sync(); }, 120000);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+$('#hist').addEventListener('toggle', loadChanges);
 </script>
 </body>
 </html>

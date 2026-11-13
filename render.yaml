@@ -22,3 +22,5 @@ services:
           property: connectionString
       - key: APP_KEY
         sync: false
+      - key: APP_KEYS
+        sync: false
