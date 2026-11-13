@@ -32,6 +32,16 @@ Render esté dormido o no haya conexión, y ver de un vistazo cómo va la noche.
 Base: `https://despertares-miguel-jr.onrender.com`. Autenticación con la cabecera
 `X-App-Key: <clave>`. La clave **no se escribe en el código ni en el repo**: la app la pide en
 Ajustes la primera vez y la guarda en el **Llavero**. Miguel la conoce. No distingue mayúsculas.
+Cada persona tiene **su propia clave** (variable `APP_KEYS` en Render): usar la de Miguel, así sus
+registros quedan a su nombre. La clave compartida antigua (`APP_KEY`) sigue valiendo, pero lo que
+se registre con ella sale como «Sin identificar».
+
+**Render dormido (plan gratuito):** tras 15 min sin uso, Render responde con su **página de espera
+en HTML** (código 200 o 503) en vez de con la API, y esa página **solo arranca el servidor si la
+abre un navegador** (ejecuta JavaScript). Por tanto:
+- Considerar «sin conexión» cualquier respuesta que no sea `application/json`, aunque sea 200.
+- Para despertarlo, cargar `https://…/healthz` en un `WKWebView` oculto (no basta con un GET con
+  `URLSession`) y reintentar la cola cada pocos segundos hasta que responda JSON (≈30–60 s).
 
 | Método | Ruta | Uso |
 |---|---|---|
@@ -39,7 +49,12 @@ Ajustes la primera vez y la guarda en el **Llavero**. Miguel la conoce. No disti
 | `GET` | `/api/wakes?days=8` | `{tonight, nights: {"YYYY-MM-DD": [{id, time, iso, note, kind}]}}` |
 | `PATCH` | `/api/wakes/:id` | Cambiar `note`, `kind` o la hora (`night` + `time` "HH:MM"). |
 | `DELETE` | `/api/wakes/:id` | Borrar evento. |
-| `GET` | `/healthz` | Despertar el servidor. |
+| `GET` | `/api/me` | `{user}`: a quién pertenece la clave. |
+| `GET` | `/api/changes?limit=50` | Historial: quién añadió, cambió o borró qué y cuándo. |
+| `GET` | `/healthz` | Comprobar el servidor (si duerme, ver arriba cómo despertarlo). |
+
+Los eventos de `GET /api/wakes` traen además `client_id`, `by` (quién lo creó) y `upd` (quién lo
+editó por última vez). `PATCH` admite también `ts` (ISO 8601) en lugar de `night` + `time`.
 
 `ts` admite como mucho 10 días atrás y 5 minutos en el futuro; si no, responde 400.
 
@@ -73,7 +88,8 @@ con su acción secundaria en cada estado.
   dar respuesta háptica más confirmación visual. La interfaz **nunca** espera a la red.
 - Una cola persistente envía los pendientes en segundo plano, reintenta con espera creciente y los
   marca como enviados al recibir 201. Gracias a `client_id`, reenviar es seguro.
-- Al abrir la app, o al volver a primer plano, hacer `GET /healthz` y luego vaciar la cola.
+- Al abrir la app, o al volver a primer plano, intentar vaciar la cola; si la respuesta no es JSON,
+  despertar Render con el `WKWebView` oculto (ver «Render dormido») y reintentar.
 - Mostrar un indicador discreto si hay eventos pendientes de enviar.
 
 ### 2. Pantalla principal (oscura, pensada para la madrugada)
