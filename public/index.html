@@ -745,6 +745,16 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) load
 window.addEventListener('online', () => sync());
 setInterval(() => { if (!document.hidden) sync(); }, 120000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+// Atajos de iOS: abrir ?do=<tipo>[&ts=<hora ISO>][&note=…] registra el evento (útil si la API no responde porque Render duerme).
+(() => {
+  const k = qs.get('do'); if (!k || !LABEL[k]) return;
+  const ts = qs.get('ts'); const at = ts && !isNaN(new Date(ts)) ? new Date(ts).toISOString() : new Date().toISOString();
+  const cid = 'atajo-' + k + '-' + at;   // si se abre dos veces el mismo enlace, no se duplica
+  history.replaceState(null, '', location.pathname);
+  if (OUTBOX.some(o => o.cid === cid) || findEv(view(), 'c:' + cid)) return;
+  OUTBOX.push({ t: 'post', cid, body: { kind: k, ts: at, note: qs.get('note') || undefined } }); persist();
+  toast(LABEL[k] + ': ' + cHHMM(new Date(at)) + ' (desde Atajos)'); render(); sync();
+})();
 $('#hist').addEventListener('toggle', loadChanges);
 </script>
 </body>
