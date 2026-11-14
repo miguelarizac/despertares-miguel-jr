@@ -485,7 +485,8 @@ function kvInput(label, day, field, type, options) {
   const d = document.createElement('div'); d.className = 'kv';
   d.innerHTML = `<span class="k">${esc(label)}</span>`;
   let el;
-  if (options) { el = document.createElement('select'); el.add(new Option('—', '')); options.forEach(o => el.add(new Option(o, o))); }
+  if (options) { el = document.createElement('select'); el.add(new Option('—', '')); options.forEach(o => el.add(new Option(o, o)));
+    const cur = (DAYS[day] || {})[field]; if (cur && !options.includes(cur)) el.add(new Option(cur, cur)); }
   else { el = document.createElement('input'); el.type = type || 'text'; if (type === 'time') el.step = 300; }
   el.value = (DAYS[day] || {})[field] || '';
   if (type === 'time') onCommit(el, () => saveDay(day, { [field]: el.value }));
@@ -544,6 +545,7 @@ function renderSheet() {
   const dz = $('#s-doubts'); dz.innerHTML = ''; dz.append(txtBox(D, 'doubts', 'Dudas y comentarios para Mimela', [], '+ Dudas y comentarios para las asesoras'));
 }
 
+const AWAKE_OPTS = Array.from({ length: 120 }, (_, i) => Math.floor((i + 1) / 60) + ':' + String((i + 1) % 60).padStart(2, '0'));
 // ---------- Siestas (se rellenan a mano desde la pizarra) ----------
 const NAPS = [['s1', 'Siesta 1 (S1)'], ['s2', 'Siesta 2 (S2)'], ['s3', 'Siesta 3 (S3)'], ['pn', 'Power Nap (siesta de emergencia)']];
 const NAP_SHOWN = new Set();
@@ -567,8 +569,8 @@ function renderNaps(D) {
       det.innerHTML = '<summary>Despertares e intervención</summary>';
       det.append(txtBox(D, k + '_notes', 'Tu intervención al acostar y su reacción (' + title + ')', BED_GROUPS, '+ Tu intervención al acostar y su reacción'));
       for (const w of (k === 's3' ? ['w1'] : ['w1', 'w2'])) {
-        det.append(kvInput('Despertar ' + w.slice(1), D, k + '_' + w, 'time'), kvInput('↳ Tiempo despierto', D, k + '_' + w + 'd', 'text'));
-        det.lastChild.querySelector('input').placeholder = '0:05';
+        // Tiempo despierto: lista de 0:01 a 2:00, igual que el desplegable de la hoja de Mimela.
+        det.append(kvInput('Despertar ' + w.slice(1), D, k + '_' + w, 'time'), kvInput('↳ Tiempo despierto', D, k + '_' + w + 'd', null, AWAKE_OPTS));
       }
       box.append(det);
     }
