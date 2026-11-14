@@ -140,8 +140,17 @@
   #modal .lbl { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.6px; margin:14px 0 8px; }
   #modal .chips { display:flex; flex-wrap:wrap; gap:8px; }
 
-  .by { color:var(--dim); font-size:11px; margin-left:5px; white-space:nowrap; }
-  .pend { color:var(--accent); font-size:11px; margin-left:5px; }
+  .by { color:var(--dim); font-size:12px; }
+  .kv .k .by, .kv .k .pend { display:block; margin:2px 0 0; }
+  /* Fila de «Editar registros»: hora + tipo + botones arriba; nota y quién debajo, a lo ancho */
+  li.erow { display:grid; grid-template-columns:auto 1fr auto auto; gap:6px 8px; align-items:center; }
+  li.erow .t { grid-column:1; grid-row:1; }
+  li.erow select { grid-column:2; grid-row:1; min-width:0; width:100%; }
+  li.erow .meta { grid-column:1 / -1; grid-row:2; display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12px; color:var(--dim); }
+  li.erow .meta:empty, li.erow .meta:not(:has(span:not(:empty))) { display:none; }
+  li.erow .meta .note { flex:none; color:var(--text2); font-size:13px; }
+  li.erow .meta .note:empty { display:none; }
+  .pend { color:var(--accent); font-size:12px; }
   #changes li { font-size:13px; color:var(--dim); display:block; }
   #changes b { color:var(--text); font-weight:600; }
   #keybox { display:none; }
@@ -260,8 +269,11 @@ const ABBR = n => n ? (n === 'Sin identificar' ? '?' : n) : '';
 function byTag(w) {
   const sp = document.createElement('span');
   if (w.pending) { sp.className = 'pend'; sp.textContent = '· sin enviar'; return sp; }
-  const who = w.upd && w.upd !== w.by ? (w.by ? w.by + ', editado por ' + w.upd : 'editado por ' + w.upd) : w.by;
-  sp.className = 'by'; sp.textContent = who ? '· ' + ABBR(who) : ''; return sp;
+  const parts = [];
+  if (w.by) parts.push('Añadido por ' + ABBR(w.by));
+  if (w.upd && w.upd !== w.by) parts.push('editado por ' + ABBR(w.upd));
+  else if (w.upd && !w.by) parts.push('Editado por ' + ABBR(w.upd));
+  sp.className = 'by'; sp.textContent = parts.join(' · '); return sp;
 }
 const ACT = { add: 'añadió', edit: 'cambió', delete: 'borró', day: 'rellenó en la hoja' };
 async function loadChanges() {
@@ -371,9 +383,10 @@ async function editNote(w) {
 // ---------- Vista Ahora ----------
 function row(w) {
   const li = document.createElement('li');
-  li.innerHTML = `<span class="t edit">${w.time}</span><span class="note"></span>`;
-  li.querySelector('.note').textContent = w.note;
-  li.querySelector('.note').append(byTag(w));
+  li.className = 'erow';
+  li.innerHTML = `<span class="t edit">${w.time}</span><span class="meta"><span class="note"></span></span>`;
+  li.querySelector('.note').textContent = w.note || '';
+  li.querySelector('.meta').append(byTag(w));
   li.querySelector('.t').onclick = () => editTime(w);
   const sel = document.createElement('select'); sel.className = 'mini';
   for (const k of Object.keys(LABEL)) sel.add(new Option(LABEL[k], k, false, k === w.kind));
