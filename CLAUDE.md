@@ -15,6 +15,9 @@ cuyos datos se pasan cada mañana al diario de sueño de las asesoras (Mimela Sl
 - Claves: `APP_KEYS` = `Nombre:clave,Nombre:clave` (una por persona; se guarda quién crea, edita o
   borra cada dato, en `wakes.created_by/updated_by`, `days.data._by` y la tabla `changes`).
   `APP_KEY` es la clave compartida antigua: sigue valiendo y figura como «Sin identificar».
+- `conector-mcp/`: conector MCP de solo lectura para Claude (Python), desplegado como servicio
+  aparte en Render (`despertares-mcp-miguel`). Ver `conector-mcp/README.md`. Si cambias las
+  tablas `wakes` o `days`, revísalo.
 - `ios/`: app nativa de iPhone. **Especificación completa en `docs/ios-app.md`**: léela antes de
   tocar nada de iOS.
 
