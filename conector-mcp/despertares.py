@@ -82,6 +82,10 @@ def _summarize(night: date, events: list[tuple[datetime, str, str]]) -> str:
     open_wake: datetime | None = None
     for t, k, _ in events:
         if k == "wake":
+            # Dos personas pueden apuntar el mismo despertar: un "wake" a menos de 10 min
+            # de otro aún abierto es el mismo despertar (se queda la primera hora).
+            if open_wake and (t - open_wake) <= timedelta(minutes=10):
+                continue
             if open_wake:
                 wakes.append(_hm(open_wake))
             open_wake = t
