@@ -1,6 +1,6 @@
 // Guarda la página en el móvil para que abra al instante aunque Render esté dormido.
 // Solo se ocupa de la página: la API siempre va a la red (los cambios pendientes los gestiona la propia página).
-const CACHE = 'sueno-v1';
+const CACHE = 'sueno-v2';
 const MARK = 'id="view-sheet"';   // así sabemos que es nuestra página y no la de espera de Render
 
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(refresh()); });
@@ -10,7 +10,12 @@ async function refresh() {
   try {
     const r = await fetch('/', { cache: 'no-store' });
     const t = await r.clone().text();
-    if (r.ok && t.includes(MARK)) { const c = await caches.open(CACHE); await c.put('/', new Response(t, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })); }
+    if (r.ok && t.includes(MARK)) {
+      const c = await caches.open(CACHE); const old = await c.match('/'); const prev = old ? await old.text() : null;
+      await c.put('/', new Response(t, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+      // Si la web ha cambiado, avisa a la página abierta para que se recargue con la versión nueva.
+      if (prev !== null && prev !== t) (await self.clients.matchAll({ type: 'window' })).forEach(cl => cl.postMessage('sueno-updated'));
+    }
     return t.includes(MARK) ? t : null;
   } catch { return null; }
 }

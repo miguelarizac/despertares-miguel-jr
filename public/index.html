@@ -846,7 +846,15 @@ load().catch(() => {});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load().catch(()=>{}); });
 window.addEventListener('online', () => sync());
 setInterval(() => { if (!document.hidden) sync(); }, 120000);
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  // Versión nueva de la web: recargar (esperando si se está editando un campo).
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data !== 'sueno-updated') return;
+    const go = () => { if (editing() || $('#modal').classList.contains('on')) return setTimeout(go, 2000); location.reload(); };
+    go();
+  });
+}
 // Atajos de iOS: abrir ?do=<tipo>[&ts=<hora ISO>][&note=…] registra el evento (útil si la API no responde porque Render duerme).
 (() => {
   const k = qs.get('do'); if (!k || !LABEL[k]) return;
