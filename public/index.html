@@ -353,8 +353,22 @@ function renderButton() {
   }
 }
 
+// Ventana con selector de hora nativo (en el iPhone sale la rueda), en vez de escribir la hora.
+function pickTime(title, value) {
+  return new Promise(res => {
+    const box = $('#mbox');
+    box.innerHTML = `<h2>${esc(title)}</h2><div class="lbl">Nueva hora</div><input type="time" id="m-time" step="60" value="${esc(value || '')}" style="width:100%;font-size:28px;padding:12px;box-sizing:border-box;text-align:center"><div class="row2"><button class="sec" id="m-cancel">Cancelar</button><button class="sec" id="m-ok" style="border-color:var(--accent2);color:var(--accent)">Guardar</button></div>`;
+    const inp = $('#m-time');
+    const close = v => { $('#modal').classList.remove('on'); res(v); };
+    $('#m-cancel').onclick = () => close(null); $('#m-ok').onclick = () => close(inp.value || null);
+    $('#modal').onclick = e => { if (e.target.id === 'modal') close(null); };
+    $('#modal').classList.add('on');
+    setTimeout(() => { try { inp.focus(); if (inp.showPicker) inp.showPicker(); } catch {} }, 50);
+  });
+}
+
 async function editTime(w) {
-  const v = prompt(LABEL[w.kind] + ' · nueva hora (HH:MM)', w.time); if (!v || v === w.time) return;
+  const v = await pickTime(LABEL[w.kind] + ' · ' + w.time, w.time); if (!v || v === w.time) return;
   try { await api('PATCH', '/api/wakes/' + w.id, { night: w.night || NIGHT, time: v.trim() }); load(); } catch { toast('Hora no válida'); }
 }
 
