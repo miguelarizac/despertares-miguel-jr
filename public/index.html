@@ -346,30 +346,25 @@ function renderButton() {
   alt.textContent = cfg[4]; alt.dataset.kind = cfg[3]; alt.hidden = false;
   const steps = $('#steps'); steps.innerHTML = '';
   if (st === 'eve') for (const k of BED) {
-    const c = document.createElement('button'); c.className = 'chip' + (s.bed[k] ? ' done' : '');
+    const c = document.createElement(s.bed[k] ? 'label' : 'button'); c.className = 'chip' + (s.bed[k] ? ' done' : '');
     c.textContent = (s.bed[k] ? '✓ ' + s.bed[k].time + ' ' : '') + LABEL[k];
-    c.onclick = () => s.bed[k] ? editTime(s.bed[k]) : record(k);
+    if (s.bed[k]) timeTap(c, s.bed[k]); else c.onclick = () => record(k);
     steps.append(c);
   }
 }
 
-// Ventana con selector de hora nativo (en el iPhone sale la rueda), en vez de escribir la hora.
-function pickTime(title, value) {
-  return new Promise(res => {
-    const box = $('#mbox');
-    box.innerHTML = `<h2>${esc(title)}</h2><div class="lbl">Nueva hora</div><input type="time" id="m-time" step="60" value="${esc(value || '')}" style="width:100%;font-size:28px;padding:12px;box-sizing:border-box;text-align:center"><div class="row2"><button class="sec" id="m-cancel">Cancelar</button><button class="sec" id="m-ok" style="border-color:var(--accent2);color:var(--accent)">Guardar</button></div>`;
-    const inp = $('#m-time');
-    const close = v => { $('#modal').classList.remove('on'); res(v); };
-    $('#m-cancel').onclick = () => close(null); $('#m-ok').onclick = () => close(inp.value || null);
-    $('#modal').onclick = e => { if (e.target.id === 'modal') close(null); };
-    $('#modal').classList.add('on');
-    setTimeout(() => { try { inp.focus(); if (inp.showPicker) inp.showPicker(); } catch {} }, 50);
+// Hora editable con un toque: un selector de hora invisible encima del texto, así el iPhone abre
+// directamente la rueda (como en la pestaña Hoja). Se guarda al cerrar la rueda.
+function timeTap(host, w) {
+  host.style.position = 'relative';
+  const el = document.createElement('input'); el.type = 'time'; el.step = 60; el.value = w.time;
+  el.setAttribute('aria-label', (LABEL[w.kind] || 'Hora') + ' · cambiar hora');
+  el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;margin:0;-webkit-appearance:none;appearance:none;cursor:pointer';
+  onCommit(el, async () => {
+    if (!el.value || el.value === w.time) return;
+    try { await api('PATCH', '/api/wakes/' + w.id, { night: w.night || NIGHT, time: el.value }); load(); } catch { toast('Hora no válida'); el.value = w.time; }
   });
-}
-
-async function editTime(w) {
-  const v = await pickTime(LABEL[w.kind] + ' · ' + w.time, w.time); if (!v || v === w.time) return;
-  try { await api('PATCH', '/api/wakes/' + w.id, { night: w.night || NIGHT, time: v.trim() }); load(); } catch { toast('Hora no válida'); }
+  host.append(el);
 }
 
 // ---------- Ventana de texto con opciones rápidas (las de la hoja) ----------
@@ -401,7 +396,7 @@ function row(w) {
   li.innerHTML = `<span class="t edit">${w.time}</span><span class="meta"><span class="note"></span></span>`;
   li.querySelector('.note').textContent = w.note || '';
   li.querySelector('.meta').append(byTag(w));
-  li.querySelector('.t').onclick = () => editTime(w);
+  timeTap(li.querySelector('.t'), w);
   const sel = document.createElement('select'); sel.className = 'mini';
   for (const k of Object.keys(LABEL)) sel.add(new Option(LABEL[k], k, false, k === w.kind));
   sel.onchange = async () => { await api('PATCH', '/api/wakes/' + w.id, { kind: sel.value }); load(); };
