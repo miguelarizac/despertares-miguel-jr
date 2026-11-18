@@ -4,7 +4,8 @@ Herramienta para registrar el sueño nocturno de Miguel Jr. (despertares, rutina
 cuyos datos se pasan cada mañana al diario de sueño de las asesoras (Mimela Sleep).
 
 - `server.js`: API en Node + Postgres, desplegada en Render (Frankfurt, plan gratuito) con
-  `render.yaml`. Cada push a `main` la redespliega.
+  `render.yaml`. OJO: el push a `main` NO la redespliega solo (los despliegues van por API):
+  tras hacer push, lanza el despliegue con la herramienta de Render (`trigger_deploy`) y comprueba que queda `live`.
 - `public/index.html`: la web (un solo fichero) que se usa desde el iPhone.
 - `public/sw.js`: guarda la web en el móvil para que abra al instante aunque Render esté dormido.
   La web apunta cada cambio en el móvil (con hora exacta y `client_id`) y lo envía cuando el
